@@ -71,11 +71,17 @@ class PermissionRoleUserSeeder extends Seeder
             // superAdmin role - full access
             $superAdmin = Role::firstOrCreate(['name' => 'superAdmin']);
 
-            // Assign permissions
-            $allPermissions = Permission::all();
-            // admin gets all (for backward compatibility)
+            // Assign permissions (excluding website permissions by default)
+            $allPermissions = Permission::where(function ($q) {
+                $q->where('name', 'not like', 'website-settings%')
+                    ->where('name', 'not like', 'web_products%')
+                    ->where('name', 'not like', 'coupons%')
+                    ->where('name', 'not like', 'web_orders%')
+                    ->where('name', 'not like', 'web_users%');
+            })->get();
+            // admin gets non-website permissions by default
             $admin->syncPermissions($allPermissions);
-            // superAdmin explicitly gets all permissions too
+            // superAdmin gets non-website permissions by default
             $superAdmin->syncPermissions($allPermissions);
 
             $managerPermissions = Permission::where(function ($q) {
