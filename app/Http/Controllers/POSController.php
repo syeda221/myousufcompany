@@ -390,18 +390,27 @@ class POSController extends Controller
             return strtolower(trim($itemColor)) === strtolower(trim($variant['color'] ?? ''));
         }
 
+        // Compare name, color and size
         $vColor = strtolower(trim($variant['color'] ?? '-'));
         $vSize = strtolower(trim($variant['size'] ?? '-'));
+        $vName = strtolower(trim($variant['name'] ?? ''));
 
         $itemVColor = strtolower(trim($itemVariant['color'] ?? ($itemVariant['color_val'] ?? '-')));
         $itemVSize = strtolower(trim($itemVariant['size'] ?? ($itemVariant['size_val'] ?? '-')));
+        $itemVName = strtolower(trim($itemVariant['name'] ?? ''));
 
         if ($vColor === '') $vColor = '-';
         if ($vSize === '') $vSize = '-';
         if ($itemVColor === '') $itemVColor = '-';
         if ($itemVSize === '') $itemVSize = '-';
 
-        return $vColor === $itemVColor && $vSize === $itemVSize;
+        $colorSizeMatch = ($vColor === $itemVColor && $vSize === $itemVSize);
+
+        if ($vName !== '' && $itemVName !== '') {
+            return $colorSizeMatch && ($vName === $itemVName);
+        }
+
+        return $colorSizeMatch;
     }
 
     public function searchInvoice(Request $request)

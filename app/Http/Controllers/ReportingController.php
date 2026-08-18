@@ -112,94 +112,149 @@ class ReportingController extends Controller
             }
 
             if (count($parsedVariants) > 0) {
-                // Fetch all sales and returns for this product to distribute
-                $salesQuery = DB::table('sale_items')->where('product_id', $product->id);
-                if ($warehouseId && $warehouseId !== 'all') {
-                    $salesQuery->where('warehouse_id', $warehouseId);
-                }
-                if ($dateFrom) $salesQuery->whereDate('created_at', '>=', $dateFrom);
-                if ($dateTo)   $salesQuery->whereDate('created_at', '<=', $dateTo);
-                $salesList = $salesQuery->select('total_pieces', 'total', 'color')->get();
+                if ($product->size_mode === 'by_kg') {
+                    // Fetch parent level weight stock and transactions
+                    if ($warehouseId && $warehouseId !== 'all') {
+                        $parentClosing = (float) $product->warehouseStocks->where('warehouse_id', $warehouseId)->sum('total_pieces');
+                    } else {
+                        $parentClosing = (float) $product->warehouseStocks->sum('total_pieces');
+                    }
 
-                // Fetch confirmed web sales
-                $webSalesQuery = DB::table('ecommerce_order_items as eoi')
-                    ->join('ecommerce_orders as eo', 'eo.id', '=', 'eoi.ecommerce_order_id')
-                    ->where('eoi.product_id', $product->id)
-                    ->where('eo.is_stock_deducted', 1);
+                    [$parentPurchased, $parentPurchaseAmount] = $this->getPurchasedQtyAndNetAmount($product->id, ['from' => $dateFrom, 'to' => $dateTo], $warehouseId);
 
-                if ($warehouseId && $warehouseId !== 'all' && $warehouseId != 1) {
-                    $webSalesQuery->whereRaw('1 = 0');
-                }
-                if ($dateFrom) $webSalesQuery->whereDate('eo.created_at', '>=', $dateFrom);
-                if ($dateTo)   $webSalesQuery->whereDate('eo.created_at', '<=', $dateTo);
+                    // Parent Sold qty & amount
+                    $saleStatsQuery = DB::table('sale_items')->where('product_id', $product->id);
+                    if ($warehouseId && $warehouseId !== 'all') $saleStatsQuery->where('warehouse_id', $warehouseId);
+                    if ($dateFrom) $saleStatsQuery->whereDate('created_at', '>=', $dateFrom);
+                    if ($dateTo)   $saleStatsQuery->whereDate('created_at', '<=', $dateTo);
+                    $saleStats = $saleStatsQuery->selectRaw('COALESCE(SUM(total_pieces),0) as total_qty, COALESCE(SUM(total),0) as total_amount')->first();
+                    $parentSold       = (float) $saleStats->total_qty;
+                    $parentSaleAmount = (float) $saleStats->total_amount;
 
-                $webSalesList = $webSalesQuery->select('eoi.quantity as total_pieces', 'eoi.total', 'eoi.color', 'eoi.size')->get();
-
-                $salesListArray = $salesList->toArray();
-                foreach ($webSalesList as $wItem) {
-                    $salesListArray[] = (object) [
-                        'total_pieces' => $wItem->total_pieces,
-                        'total' => $wItem->total,
-                        'color' => json_encode([
-                            'color' => $wItem->color ?: '-',
-                            'size' => $wItem->size ?: '-'
-                        ])
-                    ];
-                }
-                $salesList = collect($salesListArray);
-
-                $returnsQuery = DB::table('sale_return_items as sri')
-                    ->join('sale_returns as sr', 'sr.id', '=', 'sri.sale_return_id')
-                    ->where('sri.product_id', $product->id);
-                if ($warehouseId && $warehouseId !== 'all') {
-                    $returnsQuery->where('sri.warehouse_id', $warehouseId);
-                }
-                if ($dateFrom) $returnsQuery->whereDate('sr.created_at', '>=', $dateFrom);
-                if ($dateTo)   $returnsQuery->whereDate('sr.created_at', '<=', $dateTo);
-                $returnsList = $returnsQuery->select('sri.qty', 'sri.color', 'sr.sale_id')->get();
-
-                // Fetch all approved/returned purchases
-                $purchasesQuery = DB::table('purchase_items as pi')
-                    ->join('purchases as pur', 'pur.id', '=', 'pi.purchase_id')
-                    ->where('pi.product_id', $product->id)
-                    ->whereIn('pur.status_purchase', ['approved', 'Returned', 'Partial']);
-                if ($warehouseId && $warehouseId !== 'all') {
-                    $purchasesQuery->where('pur.warehouse_id', $warehouseId);
-                }
-                if ($dateFrom) $purchasesQuery->whereDate('pur.created_at', '>=', $dateFrom);
-                if ($dateTo)   $purchasesQuery->whereDate('pur.created_at', '<=', $dateTo);
-                $purchasesList = $purchasesQuery->select('pi.qty as total_pieces', 'pi.line_total', 'pi.color')->get();
-
-                // Fetch all purchase returns
-                $pReturnsQuery = DB::table('purchase_return_items as pri')->where('pri.product_id', $product->id);
-                if ($dateFrom) $pReturnsQuery->whereDate('pri.created_at', '>=', $dateFrom);
-                if ($dateTo)   $pReturnsQuery->whereDate('pri.created_at', '<=', $dateTo);
-                $purchaseReturnsList = $pReturnsQuery->select('pri.qty', 'pri.line_total', 'pri.color')->get();
-
-                // Fetch Stock Adjustments
-                $adjQuery = DB::table('stock_movements')
-                    ->where('product_id', $product->id)
-                    ->where('type', 'adjustment');
-                if ($warehouseId && $warehouseId !== 'all') {
-                    $adjQuery->where('note', 'like', "%Warehouse #{$warehouseId}%");
-                }
-                if ($dateFrom) $adjQuery->whereDate('created_at', '>=', $dateFrom);
-                if ($dateTo)   $adjQuery->whereDate('created_at', '<=', $dateTo);
-                $adjList = $adjQuery->select('qty', 'note')->get();
-
-                $saleIds = $returnsList->pluck('sale_id')->unique()->toArray();
-                $saleItemsMap = [];
-                if (!empty($saleIds)) {
-                    $siList = DB::table('sale_items')
-                        ->whereIn('sale_id', $saleIds)
+                    // Parent Returned qty
+                    $retQuery = DB::table('stock_movements')
                         ->where('product_id', $product->id)
-                        ->select('sale_id', 'color')
-                        ->get();
-                    foreach ($siList as $si) {
-                        $saleItemsMap[$si->sale_id][] = $si->color;
+                        ->where('type', 'sale_return');
+                    if ($warehouseId && $warehouseId !== 'all') {
+                        $retQuery->where('note', 'like', "%Warehouse #{$warehouseId}%");
+                    }
+                    if ($dateFrom) $retQuery->whereDate('created_at', '>=', $dateFrom);
+                    if ($dateTo)   $retQuery->whereDate('created_at', '<=', $dateTo);
+                    $parentReturnedQty = (float) $retQuery->sum('qty');
+
+                    // Parent Purchase Returned qty
+                    $pRetQuery = DB::table('purchase_return_items as pri')
+                        ->join('purchase_returns as pr', 'pr.id', '=', 'pri.purchase_return_id')
+                        ->where('pri.product_id', $product->id);
+                    if ($warehouseId && $warehouseId !== 'all') {
+                        $pRetQuery->where('pr.warehouse_id', $warehouseId);
+                    }
+                    if ($dateFrom) $pRetQuery->whereDate('pr.created_at', '>=', $dateFrom);
+                    if ($dateTo)   $pRetQuery->whereDate('pr.created_at', '<=', $dateTo);
+                    $parentPReturned = (float) $pRetQuery->sum('pri.qty');
+
+                    // Parent Adjustments
+                    $adjQuery = DB::table('stock_movements')
+                        ->where('product_id', $product->id)
+                        ->where('type', 'adjustment');
+                    if ($warehouseId && $warehouseId !== 'all') {
+                        $adjQuery->where('note', 'like', "%Warehouse #{$warehouseId}%");
+                    }
+                    if ($dateFrom) $adjQuery->whereDate('created_at', '>=', $dateFrom);
+                    if ($dateTo)   $adjQuery->whereDate('created_at', '<=', $dateTo);
+                    $parentAdjustments = (float) $adjQuery->sum('qty');
+
+                    // Parent Opening stock
+                    $parentOpening = max(0, $parentClosing - $parentPurchased + $parentSold - $parentReturnedQty + $parentPReturned - $parentAdjustments);
+                } else {
+                    // Fetch all sales and returns for this product to distribute
+                    $salesQuery = DB::table('sale_items')->where('product_id', $product->id);
+                    if ($warehouseId && $warehouseId !== 'all') {
+                        $salesQuery->where('warehouse_id', $warehouseId);
+                    }
+                    if ($dateFrom) $salesQuery->whereDate('created_at', '>=', $dateFrom);
+                    if ($dateTo)   $salesQuery->whereDate('created_at', '<=', $dateTo);
+                    $salesList = $salesQuery->select('total_pieces', 'total', 'color')->get();
+
+                    // Fetch confirmed web sales
+                    $webSalesQuery = DB::table('ecommerce_order_items as eoi')
+                        ->join('ecommerce_orders as eo', 'eo.id', '=', 'eoi.ecommerce_order_id')
+                        ->where('eoi.product_id', $product->id)
+                        ->where('eo.is_stock_deducted', 1);
+
+                    if ($warehouseId && $warehouseId !== 'all' && $warehouseId != 1) {
+                        $webSalesQuery->whereRaw('1 = 0');
+                    }
+                    if ($dateFrom) $webSalesQuery->whereDate('eo.created_at', '>=', $dateFrom);
+                    if ($dateTo)   $webSalesQuery->whereDate('eo.created_at', '<=', $dateTo);
+
+                    $webSalesList = $webSalesQuery->select('eoi.quantity as total_pieces', 'eoi.total', 'eoi.color', 'eoi.size')->get();
+
+                    $salesListArray = $salesList->toArray();
+                    foreach ($webSalesList as $wItem) {
+                        $salesListArray[] = (object) [
+                            'total_pieces' => $wItem->total_pieces,
+                            'total' => $wItem->total,
+                            'color' => json_encode([
+                                'color' => $wItem->color ?: '-',
+                                'size' => $wItem->size ?: '-'
+                            ])
+                        ];
+                    }
+                    $salesList = collect($salesListArray);
+
+                    $returnsQuery = DB::table('sale_return_items as sri')
+                        ->join('sale_returns as sr', 'sr.id', '=', 'sri.sale_return_id')
+                        ->where('sri.product_id', $product->id);
+                    if ($warehouseId && $warehouseId !== 'all') {
+                        $returnsQuery->where('sri.warehouse_id', $warehouseId);
+                    }
+                    if ($dateFrom) $returnsQuery->whereDate('sr.created_at', '>=', $dateFrom);
+                    if ($dateTo)   $returnsQuery->whereDate('sr.created_at', '<=', $dateTo);
+                    $returnsList = $returnsQuery->select('sri.qty', 'sri.color', 'sr.sale_id')->get();
+
+                    // Fetch all approved/returned purchases
+                    $purchasesQuery = DB::table('purchase_items as pi')
+                        ->join('purchases as pur', 'pur.id', '=', 'pi.purchase_id')
+                        ->where('pi.product_id', $product->id)
+                        ->whereIn('pur.status_purchase', ['approved', 'Returned', 'Partial']);
+                    if ($warehouseId && $warehouseId !== 'all') {
+                        $purchasesQuery->where('pur.warehouse_id', $warehouseId);
+                    }
+                    if ($dateFrom) $purchasesQuery->whereDate('pur.created_at', '>=', $dateFrom);
+                    if ($dateTo)   $purchasesQuery->whereDate('pur.created_at', '<=', $dateTo);
+                    $purchasesList = $purchasesQuery->select('pi.qty as total_pieces', 'pi.line_total', 'pi.color')->get();
+
+                    // Fetch all purchase returns
+                    $pReturnsQuery = DB::table('purchase_return_items as pri')->where('pri.product_id', $product->id);
+                    if ($dateFrom) $pReturnsQuery->whereDate('pri.created_at', '>=', $dateFrom);
+                    if ($dateTo)   $pReturnsQuery->whereDate('pri.created_at', '<=', $dateTo);
+                    $purchaseReturnsList = $pReturnsQuery->select('pri.qty', 'pri.line_total', 'pri.color')->get();
+
+                    // Fetch Stock Adjustments
+                    $adjQuery = DB::table('stock_movements')
+                        ->where('product_id', $product->id)
+                        ->where('type', 'adjustment');
+                    if ($warehouseId && $warehouseId !== 'all') {
+                        $adjQuery->where('note', 'like', "%Warehouse #{$warehouseId}%");
+                    }
+                    if ($dateFrom) $adjQuery->whereDate('created_at', '>=', $dateFrom);
+                    if ($dateTo)   $adjQuery->whereDate('created_at', '<=', $dateTo);
+                    $adjList = $adjQuery->select('qty', 'note')->get();
+
+                    $saleIds = $returnsList->pluck('sale_id')->unique()->toArray();
+                    $saleItemsMap = [];
+                    if (!empty($saleIds)) {
+                        $siList = DB::table('sale_items')
+                            ->whereIn('sale_id', $saleIds)
+                            ->where('product_id', $product->id)
+                            ->select('sale_id', 'color')
+                            ->get();
+                        foreach ($siList as $si) {
+                            $saleItemsMap[$si->sale_id][] = $si->color;
+                        }
                     }
                 }
-
                 foreach ($parsedVariants as $v) {
                     $vName = $v['name'] ?? $product->item_name;
                     $vSize = $v['size'] ?? '-';
@@ -216,72 +271,87 @@ class ReportingController extends Controller
                         if ($vConv > 0) $ppb = $vConv;
                     }
 
-                    // Initial Stock in Pieces
-                    $vRawStock = (string) ($v['stock'] ?? '0');
-                    if ($isCartonMode && $ppb > 1) {
-                        if (strpos($vRawStock, '.') !== false) {
-                            $parts = explode('.', $vRawStock);
-                            $boxes = (int) ($parts[0] ?? 0);
-                            $looseP = (int) ($parts[1] ?? 0);
-                            $initial = ($boxes * $ppb) + $looseP;
-                        } else {
-                            $initial = (float) $vRawStock * $ppb;
-                        }
+                    if ($product->size_mode === 'by_kg') {
+                        $factor = isset($v['conv_factor']) ? (float)$v['conv_factor'] : 1.0;
+                        $factor = $factor > 0 ? $factor : 1.0;
+
+                        $initial        = $parentOpening / $factor;
+                        $purchased      = $parentPurchased / $factor;
+                        $purchaseAmount = $parentPurchaseAmount;
+                        $sold           = $parentSold / $factor;
+                        $saleAmount     = $parentSaleAmount;
+                        $returnedQty    = $parentReturnedQty / $factor;
+                        $pReturned      = $parentPReturned / $factor;
+                        $adjustments    = $parentAdjustments / $factor;
+                        $balance        = $parentClosing / $factor;
                     } else {
-                        $initial = (float) $vRawStock;
-                    }
-
-                    // Purchased for variant
-                    $purchased = 0; $purchaseAmount = 0;
-                    foreach ($purchasesList as $pItem) {
-                        if ($this->matchSaleItemToVariant($pItem, $v)) {
-                            $purchased += (float) $pItem->total_pieces;
-                            $purchaseAmount += (float) $pItem->line_total;
+                        // Initial Stock in Pieces
+                        $vRawStock = (string) ($v['stock'] ?? '0');
+                        if ($isCartonMode && $ppb > 1) {
+                            if (strpos($vRawStock, '.') !== false) {
+                                $parts = explode('.', $vRawStock);
+                                $boxes = (int) ($parts[0] ?? 0);
+                                $looseP = (int) ($parts[1] ?? 0);
+                                $initial = ($boxes * $ppb) + $looseP;
+                            } else {
+                                $initial = (float) $vRawStock * $ppb;
+                            }
+                        } else {
+                            $initial = (float) $vRawStock;
                         }
-                    }
 
-                    // Purchase Returned for variant
-                    $pReturned = 0; $pReturnAmount = 0;
-                    foreach ($purchaseReturnsList as $prItem) {
-                        if ($this->matchSaleItemToVariant($prItem, $v)) {
-                            $pReturned += (float) $prItem->qty;
-                            $pReturnAmount += (float) $prItem->line_total;
+                        // Purchased for variant
+                        $purchased = 0; $purchaseAmount = 0;
+                        foreach ($purchasesList as $pItem) {
+                            if ($this->matchSaleItemToVariant($pItem, $v)) {
+                                $purchased += (float) $pItem->total_pieces;
+                                $purchaseAmount += (float) $pItem->line_total;
+                            }
                         }
-                    }
 
-                    // Sold for variant
-                    $sold = 0; $saleAmount = 0;
-                    foreach ($salesList as $sItem) {
-                        if ($this->matchSaleItemToVariant($sItem, $v)) {
-                            $sold += (float) $sItem->total_pieces;
-                            $saleAmount += (float) $sItem->total;
+                        // Purchase Returned for variant
+                        $pReturned = 0; $pReturnAmount = 0;
+                        foreach ($purchaseReturnsList as $prItem) {
+                            if ($this->matchSaleItemToVariant($prItem, $v)) {
+                                $pReturned += (float) $prItem->qty;
+                                $pReturnAmount += (float) $prItem->line_total;
+                            }
                         }
-                    }
 
-                    // Returned for variant
-                    $returnedQty = 0;
-                    foreach ($returnsList as $rItem) {
-                        $rColor = $rItem->color;
-                        if (empty($rColor)) {
-                            $saleColors = $saleItemsMap[$rItem->sale_id] ?? [];
-                            $rColor = !empty($saleColors) ? $saleColors[0] : '';
+                        // Sold for variant
+                        $sold = 0; $saleAmount = 0;
+                        foreach ($salesList as $sItem) {
+                            if ($this->matchSaleItemToVariant($sItem, $v)) {
+                                $sold += (float) $sItem->total_pieces;
+                                $saleAmount += (float) $sItem->total;
+                            }
                         }
-                        $rItemCopy = (object)['qty' => $rItem->qty, 'color' => $rColor];
-                        if ($this->matchSaleItemToVariant($rItemCopy, $v)) {
-                            $returnedQty += (float) $rItem->qty;
-                        }
-                    }
 
-                    // Adjustments for variant
-                    $adjustments = 0;
-                    foreach ($adjList as $adjItem) {
-                        if ($this->matchAdjustmentToVariant($adjItem, $v)) {
-                            $adjustments += (float) $adjItem->qty;
+                        // Returned for variant
+                        $returnedQty = 0;
+                        foreach ($returnsList as $rItem) {
+                            $rColor = $rItem->color;
+                            if (empty($rColor)) {
+                                $saleColors = $saleItemsMap[$rItem->sale_id] ?? [];
+                                $rColor = !empty($saleColors) ? $saleColors[0] : '';
+                            }
+                            $rItemCopy = (object)['qty' => $rItem->qty, 'color' => $rColor];
+                            if ($this->matchSaleItemToVariant($rItemCopy, $v)) {
+                                $returnedQty += (float) $rItem->qty;
+                            }
                         }
-                    }
 
-                    // Balance in Total Pieces = Initial + Purchased - Sold + Returned - Purchased Returned + Adjustments
-                    $balance = max(0, $initial + $purchased - $sold + $returnedQty - $pReturned + $adjustments);
+                        // Adjustments for variant
+                        $adjustments = 0;
+                        foreach ($adjList as $adjItem) {
+                            if ($this->matchAdjustmentToVariant($adjItem, $v)) {
+                                $adjustments += (float) $adjItem->qty;
+                            }
+                        }
+
+                        // Balance in Total Pieces = Initial + Purchased - Sold + Returned - Purchased Returned + Adjustments
+                        $balance = max(0, $initial + $purchased - $sold + $returnedQty - $pReturned + $adjustments);
+                    }
 
                     // Weighted Average Purchase Price
                     $vPurchPrice = (float) ($v['purch_price'] ?? $productPurchPrice);
@@ -2485,19 +2555,27 @@ class ReportingController extends Controller
             return strtolower(trim($itemColor)) === strtolower(trim($variant['color'] ?? ''));
         }
 
-        // Compare color and size
+        // Compare name, color and size
         $vColor = strtolower(trim($variant['color'] ?? '-'));
         $vSize = strtolower(trim($variant['size'] ?? '-'));
+        $vName = strtolower(trim($variant['name'] ?? ''));
 
         $itemVColor = strtolower(trim($itemVariant['color'] ?? ($itemVariant['color_val'] ?? '-')));
         $itemVSize = strtolower(trim($itemVariant['size'] ?? ($itemVariant['size_val'] ?? '-')));
+        $itemVName = strtolower(trim($itemVariant['name'] ?? ''));
 
         if ($vColor === '') $vColor = '-';
         if ($vSize === '') $vSize = '-';
         if ($itemVColor === '') $itemVColor = '-';
         if ($itemVSize === '') $itemVSize = '-';
 
-        return $vColor === $itemVColor && $vSize === $itemVSize;
+        $colorSizeMatch = ($vColor === $itemVColor && $vSize === $itemVSize);
+
+        if ($vName !== '' && $itemVName !== '') {
+            return $colorSizeMatch && ($vName === $itemVName);
+        }
+
+        return $colorSizeMatch;
     }
 
     /**
