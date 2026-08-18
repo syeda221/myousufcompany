@@ -101,9 +101,9 @@
                                         <td><input type="date" name="date[]" class="form-control" required></td>
                                         <td>
                                             <select name="type[]" class="form-control form-select type-select" required>
-                                                <option value="Main Customer">Main Customer</option>
-                                                <option value="Customer">Customer</option>
-                                                <option value="Walking Customer">Walking Customer</option>
+                                                @foreach(\App\Models\CustomerType::orderBy('name')->get() as $type)
+                                                    <option value="{{ $type->name }}" {{ $type->name === 'Main Customer' ? 'selected' : '' }}>{{ $type->name }}</option>
+                                                @endforeach
                                             </select>
                                         </td>
                                         <td>

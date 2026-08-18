@@ -236,8 +236,9 @@
                         <div class="input-group-modern" style="grid-column: span 2;">
                             <label class="modern-label">Customer Type <span class="text-danger">*</span></label>
                             <select class="modern-control" name="customer_type" required>
-                                <option value="Main Customer">Main Customer</option>
-                                <option value="Walking Customer">Walking Customer</option>
+                                @foreach(\App\Models\CustomerType::orderBy('name')->get() as $type)
+                                    <option value="{{ $type->name }}">{{ $type->name }}</option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="input-group-modern" style="grid-column: span 3;">

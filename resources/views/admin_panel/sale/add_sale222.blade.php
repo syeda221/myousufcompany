@@ -581,12 +581,21 @@
                             <input type="number" class="form-control text-center fw-bold" name="credit_days" placeholder="0" min="0" value="{{ $sale->credit_days ?? '0' }}">
                         </div>
                         <!-- M.Bill / Remarks -->
-                        <div class="col-sm-2">
-                            <label class="form-label fw-bold text-secondary mb-1" style="font-size:0.7rem;">M.Bill / Remarks</label>
-                            <input type="text" class="form-control" name="reference" id="remarks" placeholder="Enter remarks">
+                        <div class="col-sm-1">
+                            <label class="form-label fw-bold text-secondary mb-1" style="font-size:0.7rem;">Remarks</label>
+                            <input type="text" class="form-control" name="reference" id="remarks" placeholder="Remarks">
+                        </div>
+                        <!-- Customer Type -->
+                        <div class="col-sm-2" id="customerTypeCol">
+                            <label class="form-label fw-bold text-secondary mb-1" style="font-size:0.7rem;">Customer Type</label>
+                            <select class="form-select fw-bold" id="partyTypeSelect" name="partyType" style="font-size: 0.85rem; height: 38px;">
+                                @foreach(\App\Models\CustomerType::orderBy('name')->get() as $type)
+                                    <option value="{{ $type->name }}" {{ $type->name === 'Walking Customer' ? 'selected' : '' }}>{{ $type->name }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <!-- Customer & Walk-in Toggle -->
-                        <div class="col-sm-4">
+                        <div class="col-sm-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <label class="form-label fw-bold text-secondary mb-0" style="font-size:0.7rem;">Customer</label>
                                 <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 rounded-pill fw-bold" data-bs-toggle="modal" data-bs-target="#addCustomerModal" style="font-size: 0.65rem;">
@@ -602,12 +611,7 @@
                         </div>
                         <!-- Walkin & Save Button -->
                         <div class="col-sm-1 d-flex flex-column align-items-end justify-content-end">
-                            <div class="d-flex align-items-center gap-1 mb-1">
-                                <div class="form-check form-switch mb-0 d-flex align-items-center p-0">
-                                    <input class="form-check-input ms-0" type="checkbox" role="switch" id="walkinToggle" name="is_walkin" value="1" checked style="cursor: pointer;">
-                                    <label class="form-check-label fw-bold ms-1" for="walkinToggle" style="color: #2563eb; font-size: 0.72rem; cursor: pointer;">Walk-in</label>
-                                </div>
-                            </div>
+                            <input type="hidden" name="is_walkin" id="is_walkin" value="1">
                             <button type="button" class="btn btn-sm btn-success w-100 fw-bold py-1 shadow-sm" id="btnHeaderSaveSale" style="font-size: 0.75rem;"><i class="fas fa-check me-1"></i>Save Sale</button>
                         </div>
                     </div>
@@ -929,8 +933,9 @@
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Customer Type <span class="text-danger">*</span></label>
                                 <select class="form-select" name="customer_type" required>
-                                    <option value="Main Customer">Main Customer</option>
-                                    <option value="Walking Customer">Walking Customer</option>
+                                    @foreach(\App\Models\CustomerType::orderBy('name')->get() as $type)
+                                        <option value="{{ $type->name }}">{{ $type->name }}</option>
+                                    @endforeach
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -1072,7 +1077,7 @@
             // CUSTOMER SELECT2 AJAX SEARCH (Name or Code)
             // ============================================================
             function getPartyType() {
-                return $('input[name="partyType"]:checked').val() || 'Main Customer';
+                return $('#partyTypeSelect').val() || 'Main Customer';
             }
 
             $('#customerSelect').select2({
@@ -1120,10 +1125,10 @@
             });
 
             // Set initial visibility state of Customer Select / Walk-in input
-            $('#walkinToggle').trigger('change');
+            $('#partyTypeSelect').trigger('change');
 
             // Party type change → reset customer
-            $(document).on('change', 'input[name="partyType"]', function() {
+            $(document).on('change', '#partyTypeSelect', function() {
                 $('#customerSelect').val(null).trigger('change');
                 clearCustomerInfo();
             });

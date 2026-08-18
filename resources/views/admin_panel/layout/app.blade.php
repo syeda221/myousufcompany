@@ -864,6 +864,10 @@
                                                         <li><a href="{{ url('customers') }}"><i class="fas fa-user"></i>
                                                                 Customer</a></li>
                                                     @endcan
+                                                    @can('customer_types.view')
+                                                        <li><a href="{{ route('customer-types.index') }}"><i class="fas fa-tags"></i>
+                                                                Customer Types</a></li>
+                                                    @endcan
                                                     @can('zones.view')
                                                         <li><a href="{{ url('zone') }}"><i class="fas fa-map-marker-alt"></i>
                                                                 Zone</a></li>

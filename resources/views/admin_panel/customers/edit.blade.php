@@ -193,8 +193,9 @@
                         <div class="input-group-modern" style="grid-column: span 2;">
                             <label class="modern-label">Customer Type <span class="text-danger">*</span></label>
                             <select class="modern-control" name="customer_type" required>
-                                <option value="Main Customer" {{ $customer->customer_type == 'Main Customer' ? 'selected' : '' }}>Main Customer</option>
-                                <option value="Walking Customer" {{ $customer->customer_type == 'Walking Customer' ? 'selected' : '' }}>Walking Customer</option>
+                                @foreach(\App\Models\CustomerType::orderBy('name')->get() as $type)
+                                    <option value="{{ $type->name }}" {{ $customer->customer_type == $type->name ? 'selected' : '' }}>{{ $type->name }}</option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="input-group-modern" style="grid-column: span 3;">

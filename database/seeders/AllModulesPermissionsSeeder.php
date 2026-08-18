@@ -40,6 +40,7 @@ class AllModulesPermissionsSeeder extends Seeder
             'sales',
             'sales.returns',
             'customers',
+            'customer_types',
             'customer.ledger',
             'bookings',
             'checkbook',

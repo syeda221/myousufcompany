@@ -7,6 +7,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerTypeController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\SyncController;
@@ -213,6 +214,12 @@ Route::middleware('auth')->group(function () {
     // web.php
     Route::get('/customer/ledger/{id}', [CustomerController::class, 'getCustomerLedger']);
     Route::delete('/customer-payments/{id}', [CustomerController::class, 'destroy_payment'])->name('customer.payments.destroy');
+
+    // Customer Type Routes
+    Route::get('/customer-types', [CustomerTypeController::class, 'index'])->middleware('permission:customer_types.view')->name('customer-types.index');
+    Route::post('/customer-types/store', [CustomerTypeController::class, 'store'])->middleware('permission:customer_types.create|customer_types.edit')->name('customer-types.store');
+    Route::get('/customer-types/delete/{id}', [CustomerTypeController::class, 'destroy'])->middleware('permission:customer_types.delete')->name('customer-types.destroy');
+
 
     // Vendor Routes
     Route::get('/vendor', [VendorController::class,'index'])->middleware('permission:vendors.view')->name('vendors.index');

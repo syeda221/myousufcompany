@@ -638,23 +638,30 @@
                         </div>
                         
                         <!-- M.Bill -->
-                        <div class="col-sm-2">
+                        <div class="col-sm-1">
                             <label class="form-label fw-bold text-secondary mb-0" style="font-size: 0.72rem;">M.Bill:</label>
                             <input type="text" class="form-control" name="reference" id="remarks" placeholder="Remarks" style="height: 26px !important; padding: 0 4px;" value="{{ $sale->reference ?? '' }}">
                         </div>
                         
+                        <!-- Customer Type -->
+                        <div class="col-sm-2" id="customerTypeCol">
+                            <label class="form-label fw-bold text-secondary mb-0" style="font-size: 0.72rem;">Customer Type:</label>
+                            <select class="form-select fw-bold" id="partyTypeSelect" name="partyType" style="font-size: 0.85rem; height: 26px; padding: 0 4px;">
+                                @foreach(\App\Models\CustomerType::orderBy('name')->get() as $type)
+                                    <option value="{{ $type->name }}" {{ $type->name === ($sale->walkin_name ? 'Walking Customer' : ($sale->customer_relation->customer_type ?? 'Main Customer')) ? 'selected' : '' }}>{{ $type->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        
                         <!-- Customer & Walkin Toggle -->
-                        <div class="col-sm-5">
+                        <div class="col-sm-4">
                             <div class="d-flex justify-content-between align-items-center mb-0">
                                 <label class="form-label fw-bold text-secondary mb-0" style="font-size: 0.72rem;">Customer:</label>
                                 <div class="d-flex align-items-center gap-2">
                                     <button type="button" class="btn btn-outline-success py-0 px-1" data-bs-toggle="modal" data-bs-target="#addCustomerModal" title="Add New Customer" style="font-size: 0.68rem; height: 18px; line-height: 16px;">
                                         <i class="fas fa-plus"></i> New
                                     </button>
-                                    <div class="form-check form-switch mb-0 d-flex align-items-center" style="min-height: 0; padding-left: 2.5em;">
-                                        <input class="form-check-input" type="checkbox" role="switch" id="walkinToggle" name="is_walkin" value="1" {{ !isset($sale) || $sale->walkin_name ? 'checked' : '' }} style="height: 14px; width: 28px; margin-top:0;">
-                                        <label class="form-check-label fw-bold ms-1" for="walkinToggle" style="color: #6366f1; font-size: 0.72rem; cursor: pointer;">Walk-in</label>
-                                    </div>
+                                    <input type="hidden" name="is_walkin" id="is_walkin" value="{{ (!isset($sale) || $sale->walkin_name) ? '1' : '0' }}">
                                 </div>
                             </div>
                             <!-- Input Morph Container -->
@@ -1064,7 +1071,7 @@
                         // CUSTOMER SELECT2 AJAX SEARCH (Name or Code)
                         // ============================================================
                         function getPartyType() {
-                            return $('input[name="partyType"]:checked').val() || 'Main Customer';
+                            return $('#partyTypeSelect').val() || 'Main Customer';
                         }
 
                         $('#customerSelect').select2({
@@ -1112,10 +1119,10 @@
                         });
 
                         // Set initial visibility state of Customer Select / Walk-in input
-                        $('#walkinToggle').trigger('change');
+                        $('#partyTypeSelect').trigger('change');
 
                         // Party type change → reset customer
-                        $(document).on('change', 'input[name="partyType"]', function() {
+                        $(document).on('change', '#partyTypeSelect', function() {
                             $('#customerSelect').val(null).trigger('change');
                             clearCustomerInfo();
                         });

@@ -463,7 +463,7 @@
             tNet += net;
         });
 
-        const isWalkin = $('#walkinToggle').length > 0 && $('#walkinToggle').is(':checked');
+        const isWalkin = $('#is_walkin').val() === '1';
         
         let orderDisc = 0;
         if (isWalkin) {
@@ -713,7 +713,7 @@
         let firstMessage = null;
         let firstEl = null;
 
-        const isWalkin = $('#walkinToggle').is(':checked');
+        const isWalkin = $('#is_walkin').val() === '1';
 
         if (isWalkin) {
             const walkinName = $('#walkinNameInput').val().trim();
@@ -858,9 +858,14 @@
        EVENT BINDINGS
     ========================================= */
 
-    // Walk-in Toggle Logic
-    $('#walkinToggle').on('change', function() {
-        const isWalkin = $(this).is(':checked');
+    // Customer Type change logic -> controls Walk-in behavior
+    function handleCustomerTypeChange() {
+        const type = $('#partyTypeSelect').val();
+        const isWalkin = (type === 'Walking Customer');
+        
+        // Update hidden field value
+        $('#is_walkin').val(isWalkin ? '1' : '0');
+        
         if (isWalkin) {
             $('#customerSelect').addClass('d-none').next('.select2-container').addClass('d-none');
             $('#walkinNameInput').removeClass('d-none');
@@ -881,6 +886,10 @@
             $('#rvWrapper').appendTo('#receiptVouchersSection .card-body');
         }
         if (typeof updateGrandTotals === 'function') updateGrandTotals();
+    }
+
+    $(document).on('change', '#partyTypeSelect', function() {
+        handleCustomerTypeChange();
     });
 
 
@@ -891,16 +900,8 @@
             updateGrandTotals();
         });
         
-        // Ensure rvWrapper is in the right place on load
-        if ($('#walkinToggle').is(':checked')) {
-            $('#rvWrapper').appendTo('#walkinReceiptsContainer');
-            $('#totalsSection').removeClass('col-lg-5').addClass('col-lg-12');
-            $('#receiptVouchersSection').hide();
-            $('#totalsCustomerView').addClass('d-none').removeClass('d-flex');
-            $('#totalsWalkinView').removeClass('d-none').addClass('d-flex');
-        } else {
-            $('#totalsSection').removeClass('col-lg-12').addClass('col-lg-5');
-        }
+        // Ensure initial UI setup on page load
+        handleCustomerTypeChange();
 
         // Remove invalid classes on input
         $(document).on('input change', 'select, input, textarea', function() {
@@ -1271,7 +1272,7 @@
             }
 
             // Walk-in 100% Payment Validation Check
-            const isWalkin = $('#walkinToggle').is(':checked');
+            const isWalkin = $('#is_walkin').val() === '1';
             const invoiceNet = toNum($('#totalBalance').val());
             const paidNow = toNum($('#receiptsTotal').text());
 
