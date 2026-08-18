@@ -131,8 +131,12 @@ function yourFunction(url,method) {
                     multipleerrorshandle(data['errors'])
                     return false;
                 }
-
-                callback(data)
+                if (typeof callback === 'function') {
+                    callback(data);
+                } else {
+                    showAlert("Success", data.message || data.success || "Operation completed successfully", "success");
+                    window.location.reload();
+                }
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 ajaxErrorHandling(jqXHR, errorThrown);

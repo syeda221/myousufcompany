@@ -23,10 +23,15 @@ class ExpenseCategoryController extends Controller
         ]);
 
         if ($validator->fails()) {
+            if ($request->ajax()) {
+                return response()->json([
+                    'errors' => $validator->errors()
+                ], 422);
+            }
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput()
-                ->with('swal_error', $validator->errors()->first());
+                ->with('error', $validator->errors()->first());
         }
 
         if ($request->filled('edit_id')) {

@@ -25,13 +25,17 @@ class CategoryController extends Controller
         'name' => 'required|unique:categories,name,' . $request->edit_id . ',id',
     ]);
 
-     if ($validator->fails()) {
-
-    return redirect()->back()
-        ->withErrors($validator)
-        ->withInput()
-        ->with('catagory_swal_error', $validator->errors()->first());
-}
+    if ($validator->fails()) {
+        if ($request->ajax()) {
+            return response()->json([
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        return redirect()->back()
+            ->withErrors($validator)
+            ->withInput()
+            ->with('error', $validator->errors()->first());
+    }
 
     /**
      * UPDATE CATEGORY

@@ -348,6 +348,7 @@
 @endsection
 
 @section('js')
+<script src="{{ asset('assets/js/mycode.js') }}"></script>
 <script>
     // Fix ARIA focus warning on modal close
     $('.modal').on('hide.bs.modal', function () {
