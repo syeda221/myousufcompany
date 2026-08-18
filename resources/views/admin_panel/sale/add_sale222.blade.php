@@ -498,6 +498,8 @@
                 @csrf
                 <input type="hidden" id="booking_id" name="booking_id" value="">
                 <input type="hidden" id="action" name="action" value="sale">
+                <input type="hidden" name="cash" value="0">
+                <input type="hidden" id="totalBalance" value="0">
 
                 {{-- TOP HEADER BAR --}}
                 <div class="d-flex justify-content-between align-items-center mb-2 px-1">
@@ -794,7 +796,8 @@
                                 </div>
                                 <div class="summary-row">
                                     <span class="text-muted">Total Paid</span>
-                                    <span class="fw-bold text-success" id="receiptsTotalBadge">0.00</span>
+                                    <span class="fw-bold text-success" id="receiptsTotal">0.00</span>
+                                    <span id="receiptsTotalBadge" style="display:none;">0.00</span>
                                 </div>
                                 <div class="summary-row pt-1">
                                     <span class="fw-bold text-danger">Change</span>

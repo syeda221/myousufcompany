@@ -1303,6 +1303,12 @@ class SaleController extends Controller
             $sale->cash = $request->cash ?? 0;
             $sale->change = ($sale->cash - $sale->total_net);
 
+            if ($isWalkin && $sale->change < -0.05) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'cash' => 'Walk-in customers must pay 100% upfront. Balance cannot be unpaid.'
+                ]);
+            }
+
             $sale->save();
 
             // Process returned/exchange items (if any)
