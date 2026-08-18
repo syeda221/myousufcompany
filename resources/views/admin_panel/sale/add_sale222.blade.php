@@ -1044,6 +1044,7 @@
         </div>
     </div>
 </div>
+-->
 
     {{-- Quick Add Product Modal --}}
     @include('admin_panel.partials.quick_add_product_modal')

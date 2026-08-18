@@ -86,6 +86,7 @@
     </div>
 </div>
 
+@push('scripts')
 <script>
 $(document).ready(function() {
     // Toggle fields based on size mode
@@ -207,3 +208,4 @@ $(document).ready(function() {
     });
 });
 </script>
+@endpush

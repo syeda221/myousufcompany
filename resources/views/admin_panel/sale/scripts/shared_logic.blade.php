@@ -1445,6 +1445,12 @@
             }
         });
 
+        // Failsafe trigger for Quick Add Product Modal
+        $(document).on('click', '[data-bs-target="#quickAddProductModal"], [data-target="#quickAddProductModal"]', function(e) {
+            e.preventDefault();
+            $('#quickAddProductModal').modal('show');
+        });
+
         // Initialize Posted Button State
         refreshPostedState();
     }); // Close $(document).ready
