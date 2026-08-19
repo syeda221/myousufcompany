@@ -277,16 +277,24 @@
                                 $qtyStr = "{$loosePieces} Pcs";
                             }
                         }
+
+                        $sizeStr = '';
+                        if (!empty($item['size_val']) && $item['size_val'] !== '-') {
+                            $sizeStr = $item['size_val'];
+                        } elseif (($sizeMode == 'by_size' || ($item['size_mode'] ?? '') == 'by_size') && ($item['height'] ?? 0) > 0 && ($item['width'] ?? 0) > 0) {
+                            $sizeStr = number_format($item['width'], 0) . 'x' . number_format($item['height'], 0);
+                        } elseif (!empty($item['height']) && !empty($item['width']) && $item['height'] != '-' && $item['width'] != '-') {
+                            $sizeStr = $item['height'] . 'x' . $item['width'];
+                        }
                     @endphp
                     <tr>
                         <td class="item-name">
                             {{ \Illuminate\Support\Str::limit($item['item_name'], 30) }}
-                            <div class="item-meta mt-1">
-                                @if (!empty($item['item_code']))
-                                    ({{ $item['item_code'] }})
-                                @endif
-                                Total: {{ $totalPieces }} pcs
-                            </div>
+                            @if (!empty($sizeStr))
+                                <div class="item-meta mt-1">
+                                    Size: {{ $sizeStr }}
+                                </div>
+                            @endif
                         </td>
                         <td class="text-end font-weight-bold" style="vertical-align: middle;">
                             {{ $qtyStr }}
