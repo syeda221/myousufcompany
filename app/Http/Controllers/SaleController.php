@@ -1044,7 +1044,7 @@ class SaleController extends Controller
         //     throw \Illuminate\Validation\ValidationException::withMessages(['product_id' => 'Duplicate products are not allowed in a single sale. Please merge quantities.']);
         // }
 
-        $status = $request->action === 'post' ? 'posted' : 'booked';
+        $status = in_array($request->action, ['post', 'sale', 'posted']) ? 'posted' : 'booked';
 
         // Concurrency Safe Transaction
         try {
@@ -1103,7 +1103,7 @@ class SaleController extends Controller
             $total_items = 0;
 
             // Determine if this is a booking transaction
-            if ($request->action === 'booking' || ($sale->exists && $sale->is_booking)) {
+            if ($request->action === 'booking' || ($status === 'booked' && $sale->is_booking)) {
                 $sale->is_booking = 1;
             } else {
                 $sale->is_booking = 0;

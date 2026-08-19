@@ -23,6 +23,11 @@ class Sale extends Model
         return $this->belongsTo(Product::class, 'product', 'id');
     }
 
+    public function getIsWalkinAttribute()
+    {
+        return empty($this->customer_id) || !empty($this->walkin_name);
+    }
+
     public static function generateInvoiceNo($prefix = null)
     {
         return \App\Models\InvoiceSeries::generateNextNo($prefix);

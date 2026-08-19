@@ -487,7 +487,7 @@
         $('#tPrev').text(prev.toFixed(2));
         $('#tPayable').text(payable.toFixed(2));
         $('#totalAmount').text(tNet.toFixed(2));
-        $('#walkinNetTotal').text(tNet.toFixed(2));
+        $('#walkinNetTotal').text(currentInvoiceTotal.toFixed(2));
         $('#bottomPaymentsTotal').text(receipts.toFixed(2));
         $('#receiptsTotalBadge').text(receipts.toFixed(2));
         $('#itemsRowCount').text($('#salesTableBody tr').length);
@@ -571,10 +571,12 @@
     function canPost() {
         let ok = false;
         $('#salesTableBody tr').each(function() {
-            const pid = $(this).find('.product-id-hidden').val();
-            const cartons = parseInt($(this).find('.carton-qty').val()) || 0;
-            const loose   = parseInt($(this).find('.loose-pcs-input').val()) || 0;
-            if (pid && (cartons > 0 || loose > 0)) {
+            const pid = $(this).find('.product-id-hidden').val() || $(this).find('.product').val();
+            const cartons = parseFloat($(this).find('.carton-qty').val()) || 0;
+            const loose   = parseFloat($(this).find('.loose-pcs-input').val()) || 0;
+            const pieces  = parseFloat($(this).find('.total-pieces').val()) || 0;
+            const qty     = parseFloat($(this).find('.sales-qty').val()) || 0;
+            if (pid && (cartons > 0 || loose > 0 || pieces > 0 || qty > 0)) {
                 ok = true;
                 return false;
             }
@@ -1347,7 +1349,16 @@
                 return;
             }
 
-            ensureSaved().then(postNow);
+            ensureSaved().then(function(bid) {
+                Swal.fire({
+                    title: 'Success!',
+                    text: 'Sale Saved & Posted Successfully',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                setTimeout(() => window.location.href = "{{ route('sale.index') }}", 1500);
+            });
         });
 
         // Receipts Logic

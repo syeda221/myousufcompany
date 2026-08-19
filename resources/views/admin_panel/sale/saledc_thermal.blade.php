@@ -286,13 +286,23 @@
                         } elseif (!empty($item['height']) && !empty($item['width']) && $item['height'] != '-' && $item['width'] != '-') {
                             $sizeStr = $item['height'] . 'x' . $item['width'];
                         }
+
+                        $colorStr = '';
+                        if (!empty($item['color_val']) && $item['color_val'] !== '-') {
+                            $colorStr = $item['color_val'];
+                        }
+                        $variantStr = implode(' | ', array_filter([$sizeStr, $colorStr]));
                     @endphp
                     <tr>
                         <td class="item-name">
                             {{ \Illuminate\Support\Str::limit($item['item_name'], 30) }}
-                            @if (!empty($sizeStr))
+                            @if (!empty($variantStr))
                                 <div class="item-meta mt-1">
-                                    Size: {{ $sizeStr }}
+                                    {{ $variantStr }}
+                                </div>
+                            @elseif (!empty($sizeStr))
+                                <div class="item-meta mt-1">
+                                    {{ $sizeStr }}
                                 </div>
                             @endif
                         </td>

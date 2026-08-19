@@ -603,6 +603,7 @@
                      We are using AJAX save, so method usually handled in JS. 
                      But let's stick to the existing structure. --}}
                 <input type="hidden" name="booking_id" id="booking_id" value="">
+                <input type="hidden" id="action" name="action" value="sale">
 
                 {{-- HEADER - Compact --}}
                 <div class="d-flex justify-content-between align-items-center px-2 py-1 border-bottom" style="min-height:28px;">
@@ -943,7 +944,7 @@
                                                 <option value="{{ $acc->id }}" {{ $firstLine && $firstLine->account_id == $acc->id ? 'selected' : ($firstLine ? '' : (str_contains(strtolower($acc->title), 'cash') ? 'selected' : '')) }}>{{ $acc->title }}</option>
                                             @endforeach
                                         </select>
-                                        <input type="number" step="0.01" class="form-control form-control-sm text-end rv-amount fw-bold" name="receipt_amount[]" value="{{ $firstLine ? number_format($firstLine->debit, 2, '.', '') : '' }}" placeholder="0.00" style="max-width:140px; border-radius: 4px;">
+                                        <input type="number" step="0.01" class="form-control form-control-sm text-end rv-amount fw-bold" name="receipt_amount[]" value="{{ $firstLine ? number_format($firstLine->debit, 2, '.', '') : ((isset($sale) && $sale->cash > 0) ? number_format($sale->cash, 2, '.', '') : '') }}" placeholder="0.00" style="max-width:140px; border-radius: 4px;">
                                         <button type="button" class="btn btn-primary btn-sm px-2 rounded-2 shadow-sm" id="btnAddRV"><i class="fas fa-plus"></i> Add</button>
                                     </div>
                                     @foreach ($otherLines as $line)
@@ -981,7 +982,7 @@
                                 <!-- Discount -->
                                 <div class="d-flex align-items-center gap-1 flex-shrink-0">
                                     <span class="text-muted fw-semibold" style="font-size:0.78rem;">Disc (Rs):</span>
-                                    <input type="number" class="form-control form-control-sm text-end fw-bold text-danger border-danger" id="walkinDiscountRs" value="{{ isset($sale) && $sale->is_walkin ? $sale->total_extradiscount : '0' }}" placeholder="0" style="width: 80px; background-color: #fef2f2; height: 26px !important; padding: 1px 4px;">
+                                    <input type="number" class="form-control form-control-sm text-end fw-bold text-danger border-danger" id="walkinDiscountRs" value="{{ isset($sale) && ($sale->is_walkin || $sale->walkin_name || empty($sale->customer_id)) ? (float) $sale->total_extradiscount : '0' }}" placeholder="0" style="width: 80px; background-color: #fef2f2; height: 26px !important; padding: 1px 4px;">
                                 </div>
                                 
                                 <!-- Payments -->
@@ -1054,7 +1055,7 @@
                 {{-- Buttons --}}
                 <div class="d-flex flex-wrap gap-1 justify-content-center py-1 px-2 mt-1 border-top">
                     <button type="button" class="btn btn-action-primary bg-primary border-primary" id="btnSave"><i class="fas fa-bookmark me-1"></i>Booking</button>
-                    <button type="button" class="btn btn-action-primary bg-success border-success" id="btnPosted" disabled><i class="fas fa-check-circle me-1"></i>Sale</button>
+                    <button type="button" class="btn btn-action-primary bg-success border-success" id="btnPosted"><i class="fas fa-check-circle me-1"></i>Sale</button>
 
                     <button type="button" class="btn btn-action-secondary" id="btnPrint"><i class="fas fa-print me-1"></i>A4</button>
                     <button type="button" class="btn btn-action-secondary" id="btnEstimate"><i class="fas fa-file-invoice me-1"></i>Est</button>
@@ -1120,12 +1121,16 @@
                         });
 
                         // Set initial visibility state of Customer Select / Walk-in input
-                        $('#partyTypeSelect').trigger('change');
+                        if (typeof handleCustomerTypeChange === 'function') {
+                            handleCustomerTypeChange();
+                        }
 
-                        // Party type change → reset customer
-                        $(document).on('change', '#partyTypeSelect', function() {
-                            $('#customerSelect').val(null).trigger('change');
-                            clearCustomerInfo();
+                        // Party type change → reset customer only when user changes
+                        $(document).on('change', '#partyTypeSelect', function(e) {
+                            if (!e.isTrigger) {
+                                $('#customerSelect').val(null).trigger('change');
+                                clearCustomerInfo();
+                            }
                         });
 
                         // Customer selected → load details
