@@ -177,6 +177,44 @@
         .balance-dr { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
         .balance-cr { background: #f0fdf4; color: #16a34a; border: 1px solid #86efac; }
 
+        /* Select2 RV Custom Styling */
+        .select2-container--default .select2-selection--single {
+            background-color: #fff !important;
+            border: 1px solid var(--rv-border) !important;
+            border-radius: 8px !important;
+            height: 38px !important;
+            padding: 4px 8px !important;
+            font-size: 0.9rem !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 28px !important;
+            color: var(--rv-text) !important;
+            padding-left: 2px !important;
+            font-weight: 600;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px !important;
+            right: 8px !important;
+        }
+        .select2-container--default.select2-container--focus .select2-selection--single,
+        .select2-container--default.select2-container--open .select2-selection--single {
+            border-color: var(--rv-primary) !important;
+            box-shadow: 0 0 0 3px rgba(79,70,229,0.1) !important;
+            outline: none !important;
+        }
+        .select2-dropdown {
+            border: 1px solid var(--rv-border) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1) !important;
+            z-index: 9999 !important;
+        }
+        .select2-search--dropdown .select2-search__field {
+            border: 1px solid var(--rv-border) !important;
+            border-radius: 6px !important;
+            padding: 6px 10px !important;
+            outline: none !important;
+        }
+
         /* Disable number input spin buttons / up-down arrows */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { 
@@ -351,53 +389,102 @@
     <script>
         $(document).ready(function() {
 
-            // Auto-load customers on page load (default type = customer)
-            loadPartyList('customer');
-
-            // Header Party Logic
-            $('#partyType').on('change', function() {
-                let type = $(this).val();
-                loadPartyList(type);
-            });
-
-            function loadPartyList(type) {
-                let $select = $('#partyId');
-                $select.html('<option disabled selected>Loading...</option>');
-                $('#tel').val('');
-                updateBalance(0);
-
-                if (type === 'vendor' || type === 'customer' || type === 'walkin') {
-                    $.get('{{ route("party.list") }}?type=' + type, function(data) {
-                        $select.empty().append('<option disabled selected>Select Party</option>');
-                        data.forEach(function(item) {
-                            $select.append(
-                                `<option value="${item.id}" data-phone="${item.mobile || ''}" data-bal="${item.closing_balance}">${item.text}</option>`
-                            );
-                        });
-                    });
-                } else if (type) {
-                    $.get('{{ url("get-accounts-by-head") }}/' + type, function(data) {
-                        $select.empty().append('<option disabled selected>Select Account</option>');
-                        data.forEach(function(acc) {
-                            $select.append(
-                                `<option value="${acc.id}" data-phone="${acc.account_code}" data-bal="${acc.current_balance || 0}">${acc.title}</option>`
-                            );
-                        });
-                    });
-                }
+            // Initialize Searchable Party Select2
+            function initPartySelect2() {
+                $('#partyId').select2({
+                    placeholder: 'Search by Name or Code...',
+                    allowClear: true,
+                    width: '100%',
+                    minimumInputLength: 0,
+                    ajax: {
+                        url: '{{ route("party.list") }}',
+                        dataType: 'json',
+                        delay: 250,
+                        data: function(params) {
+                            return {
+                                type: $('#partyType').val(),
+                                search: params.term || ''
+                            };
+                        },
+                        processResults: function(data) {
+                            return {
+                                results: data.map(function(item) {
+                                    return {
+                                        id: item.id,
+                                        text: item.text,
+                                        party: item
+                                    };
+                                })
+                            };
+                        },
+                        cache: false
+                    },
+                    templateResult: function(item) {
+                        if (item.loading) return item.text;
+                        if (!item.party) return item.text;
+                        const p = item.party;
+                        const code = p.customer_id || p.account_code || '';
+                        const name = p.customer_name || p.name || p.title || item.text;
+                        const bal = p.closing_balance !== undefined ? parseFloat(p.closing_balance) : 0;
+                        const balFormatted = Math.abs(bal).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2});
+                        const balType = bal >= 0 ? (p.customer_name ? 'Dr' : 'Cr') : (p.customer_name ? 'Cr' : 'Dr');
+                        
+                        return $(`<div class="d-flex justify-content-between align-items-center py-1">
+                            <div>
+                                <div class="fw-bold text-dark">${name}</div>
+                                <div class="d-flex gap-2 align-items-center">
+                                    ${code ? '<small class="text-primary fw-semibold">' + code + '</small>' : ''}
+                                    ${p.mobile ? '<small class="text-muted"><i class="bi bi-telephone me-1"></i>' + p.mobile + '</small>' : ''}
+                                </div>
+                            </div>
+                            <div class="text-end ms-2">
+                                <span class="badge ${bal >= 0 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} border px-2 py-1" style="font-size: 0.75rem;">
+                                    Bal: ${balFormatted} ${balType}
+                                </span>
+                            </div>
+                        </div>`);
+                    },
+                    templateSelection: function(item) {
+                        if (!item.party) return item.text;
+                        const p = item.party;
+                        const name = p.customer_name || p.name || p.title || item.text;
+                        const code = p.customer_id || p.account_code ? ` [${p.customer_id || p.account_code}]` : '';
+                        const bal = p.closing_balance !== undefined ? parseFloat(p.closing_balance) : 0;
+                        const balFormatted = Math.abs(bal).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2});
+                        const balType = bal >= 0 ? (p.customer_name ? 'Dr' : 'Cr') : (p.customer_name ? 'Cr' : 'Dr');
+                        return `${name}${code} (Bal: ${balFormatted} ${balType})`;
+                    }
+                });
             }
 
-            $('#partyId').on('change', function() {
-                let $opt = $(this).find(':selected');
-                $('#tel').val($opt.data('phone'));
-                let bal = parseFloat($opt.data('bal')) || 0;
+            initPartySelect2();
+
+            // Header Party Type Change → Reset & Clear
+            $('#partyType').on('change', function() {
+                $('#partyId').val(null).trigger('change');
+                $('#tel').val('');
+                updateBalance(0);
+            });
+
+            // Party selected → load details & update balance
+            $('#partyId').on('select2:select', function(e) {
+                let item = e.params.data.party || e.params.data;
+                if (!item) return;
+
+                $('#tel').val(item.mobile || item.phone || '');
+                let bal = parseFloat(item.closing_balance) || 0;
                 updateBalance(bal);
 
                 // Auto-set remarks
-                let partyName = $opt.text().trim();
-                if (!$('#remarks').val()) {
+                let partyName = item.customer_name || item.name || item.title || '';
+                if (!$('#remarks').val() && partyName) {
                     $('#remarks').val('Receipt from ' + partyName);
                 }
+            });
+
+            $('#partyId').on('select2:clear', function() {
+                $('#tel').val('');
+                updateBalance(0);
             });
 
             function updateBalance(bal) {

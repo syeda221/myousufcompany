@@ -1011,52 +1011,83 @@ class VoucherController extends Controller
 
     public function partyList(Request $request)
     {
-        $type = $request->type;
+        $type = $request->type ?? 'customer';
+        $search = $request->search ?? $request->q ?? '';
         $data = [];
 
         try {
             $balanceService = app(\App\Services\BalanceService::class);
 
             if ($type == 'vendor') {
-                $vendors = \Illuminate\Support\Facades\DB::table('vendors')->select('id', 'name as text', 'phone as mobile', 'address', 'opening_balance')->get();
+                $query = \Illuminate\Support\Facades\DB::table('vendors')
+                    ->select('id', 'name', 'phone as mobile', 'address', 'opening_balance');
+
+                if ($search) {
+                    $query->where(function($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                          ->orWhere('phone', 'like', "%{$search}%");
+                    });
+                }
+
+                $vendors = $query->orderBy('name')->get();
                 foreach ($vendors as $vendor) {
                     $vendor->closing_balance = $balanceService->getVendorBalance($vendor->id);
                     $bal = number_format(abs($vendor->closing_balance), 0);
                     $lbl = $vendor->closing_balance >= 0 ? 'Cr' : 'Dr';
-                    $vendor->text = $vendor->text . " (Bal: {$bal} {$lbl})";
+                    $vendor->customer_name = $vendor->name;
+                    $vendor->text = $vendor->name . " (Bal: {$bal} {$lbl})";
                     $data[] = $vendor;
                 }
-            } elseif ($type == 'customer') {
-                $customers = \App\Models\Customer::where('customer_type', '!=', 'Walking Customer')
-                    ->get(['id', 'customer_name', 'mobile', 'address', 'status', 'opening_balance']);
+            } elseif ($type == 'customer' || $type == 'walkin') {
+                $query = \App\Models\Customer::query();
+
+                if ($type == 'walkin') {
+                    $query->where('customer_type', 'Walking Customer');
+                }
+
+                if ($search) {
+                    $query->where(function ($q) use ($search) {
+                        $q->where('customer_name', 'like', "%{$search}%")
+                          ->orWhere('customer_id',   'like', "%{$search}%")
+                          ->orWhere('mobile',        'like', "%{$search}%");
+                    });
+                }
+
+                $customers = $query->orderBy('customer_name')
+                    ->get(['id', 'customer_id', 'customer_name', 'mobile', 'address', 'status', 'opening_balance']);
 
                 foreach ($customers as $customer) {
                     $customer->closing_balance = $balanceService->getCustomerBalance($customer->id);
                     $bal = number_format(abs($customer->closing_balance), 0);
                     $lbl = $customer->closing_balance >= 0 ? 'Dr' : 'Cr';
                     
-                    $customer->text = $customer->customer_name . " (Bal: {$bal} {$lbl})";
+                    $customer->text = ($customer->customer_id ? $customer->customer_id . ' — ' : '') . $customer->customer_name . " (Bal: {$bal} {$lbl})";
+                    $customer->name = $customer->customer_name;
                     $customer->remarks = $customer->status;
                     $data[] = $customer;
                 }
-            } elseif ($type == 'walkin') {
-                $customers = \App\Models\Customer::where('customer_type', 'Walking Customer')
-                    ->get(['id', 'customer_name', 'mobile', 'address', 'status', 'opening_balance']);
-
-                foreach ($customers as $customer) {
-                    $customer->closing_balance = $balanceService->getCustomerBalance($customer->id);
-                    $bal = number_format(abs($customer->closing_balance), 0);
-                    $lbl = $customer->closing_balance >= 0 ? 'Dr' : 'Cr';
-
-                    $customer->text = $customer->customer_name . " (Bal: {$bal} {$lbl})";
-                    $customer->remarks = $customer->status;
-                    $data[] = $customer;
+            } elseif (is_numeric($type)) {
+                $query = \App\Models\Account::where('account_head_id', $type);
+                if ($search) {
+                    $query->where(function($q) use ($search) {
+                        $q->where('title', 'like', "%{$search}%")
+                          ->orWhere('account_code', 'like', "%{$search}%");
+                    });
+                }
+                $accounts = $query->orderBy('title')->get();
+                foreach ($accounts as $acc) {
+                    $acc->closing_balance = $acc->current_balance ?? 0;
+                    $acc->mobile = $acc->account_code;
+                    $acc->name = $acc->title;
+                    $acc->customer_name = $acc->title;
+                    $acc->text = $acc->title . " [{$acc->account_code}]";
+                    $data[] = $acc;
                 }
             }
         } catch (\Exception $e) {
             \Log::error('Party List Error: '.$e->getMessage());
 
-            return response()->json([]); // Return empty on error to avoid breaking JS
+            return response()->json([]);
         }
 
         return response()->json($data);
