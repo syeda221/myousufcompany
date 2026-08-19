@@ -590,7 +590,7 @@
                             <label class="form-label fw-bold text-secondary mb-1" style="font-size:0.7rem;">Customer Type</label>
                             <select class="form-select fw-bold" id="partyTypeSelect" name="partyType" style="font-size: 0.85rem; height: 38px;">
                                 @foreach(\App\Models\CustomerType::orderBy('name')->get() as $type)
-                                    <option value="{{ $type->name }}" {{ $type->name === 'Walking Customer' ? 'selected' : '' }}>{{ $type->name }}</option>
+                                    <option value="{{ $type->name }}" {{ $type->name === 'Main Customer' ? 'selected' : '' }}>{{ $type->name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -603,15 +603,15 @@
                                 </button>
                             </div>
                             <div id="customerInputWrapper">
-                                <input type="text" class="form-control fw-bold" name="walkin_name" id="walkinNameInput" value="Walk-in Customer" placeholder="Enter Walk-in Name...">
-                                <select class="form-select d-none" id="customerSelect" name="customer" style="width:100%">
+                                <input type="text" class="form-control fw-bold d-none" name="walkin_name" id="walkinNameInput" value="Walk-in Customer" placeholder="Enter Walk-in Name...">
+                                <select class="form-select" id="customerSelect" name="customer" style="width:100%">
                                     <option value=""></option>
                                 </select>
                             </div>
                         </div>
                         <!-- Walkin & Save Button -->
                         <div class="col-sm-1 d-flex flex-column align-items-end justify-content-end">
-                            <input type="hidden" name="is_walkin" id="is_walkin" value="1">
+                            <input type="hidden" name="is_walkin" id="is_walkin" value="0">
                             <button type="button" class="btn btn-sm btn-success w-100 fw-bold py-1 shadow-sm" id="btnHeaderSaveSale" style="font-size: 0.75rem;"><i class="fas fa-check me-1"></i>Save Sale</button>
                         </div>
                     </div>

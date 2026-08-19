@@ -12,19 +12,23 @@ use Illuminate\Support\Facades\Auth;
 
 class CustomerController extends Controller
 {
-    // ////////////
-    // 🔹 Load customers list by type
+    // 🔹 Load customers list by type (Main Customer returns all types)
     public function saleindex(Request $request)
     {
         $type   = $request->type   ?? 'Main Customer';
         $search = $request->search ?? '';
 
-        $query = Customer::where('customer_type', $type);
+        $query = Customer::query();
+
+        if ($type && $type !== 'Main Customer' && $type !== 'all') {
+            $query->where('customer_type', $type);
+        }
 
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('customer_name', 'like', "%{$search}%")
-                  ->orWhere('customer_id',   'like', "%{$search}%");
+                  ->orWhere('customer_id',   'like', "%{$search}%")
+                  ->orWhere('mobile',        'like', "%{$search}%");
             });
         }
 
