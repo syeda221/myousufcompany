@@ -272,6 +272,17 @@
         .me-2 { margin-right: 8px !important; }
         .ms-1 { margin-left: 4px !important; }
         .ms-2 { margin-left: 8px !important; }
+
+        /* Disable number input spin buttons / up-down arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] { 
+            -moz-appearance: textfield; 
+            appearance: textfield;
+        }
     </style>
 
     <div class="main-content">
@@ -573,6 +584,17 @@
 
             $(document).on('input', '.amount', function() {
                 calculateTotal();
+            });
+
+            // Prevent arrow up/down keys and scroll wheel from changing amount / number values
+            $(document).on('keydown', 'input[type="number"], .amount', function(e) {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.keyCode === 38 || e.keyCode === 40) {
+                    e.preventDefault();
+                }
+            });
+
+            $(document).on('wheel', 'input[type="number"], .amount', function(e) {
+                $(this).blur();
             });
 
             // Add Row

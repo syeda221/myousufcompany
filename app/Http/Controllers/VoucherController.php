@@ -525,9 +525,26 @@ class VoucherController extends Controller
 
             DB::commit();
 
-            return back()->with('success', 'Receipt Voucher saved successfully!');
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Receipt Voucher saved successfully!',
+                    'voucher_id' => $rec->id,
+                    'print_url' => route('print', $rec->id),
+                    'all_vouchers_url' => route('all_recepit_vochers'),
+                ]);
+            }
+
+            return redirect()->route('print', $rec->id)->with('success', 'Receipt Voucher saved successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
 
             return back()->with('error', $e->getMessage());
         }

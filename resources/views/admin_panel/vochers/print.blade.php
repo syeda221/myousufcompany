@@ -324,6 +324,12 @@
                 el.innerText = numberToWords(amount) || el.innerText;
             }
         });
+
+        window.addEventListener("load", function () {
+            setTimeout(function() {
+                window.print();
+            }, 300);
+        });
     </script>
 
 </body>

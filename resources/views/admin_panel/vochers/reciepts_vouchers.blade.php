@@ -176,6 +176,17 @@
         }
         .balance-dr { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
         .balance-cr { background: #f0fdf4; color: #16a34a; border: 1px solid #86efac; }
+
+        /* Disable number input spin buttons / up-down arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] { 
+            -moz-appearance: textfield; 
+            appearance: textfield;
+        }
     </style>
 
     <div class="main-content">
@@ -202,9 +213,6 @@
                                 <a href="{{ route('all_recepit_vochers') }}" class="btn btn-rv-secondary">
                                     <i class="bi bi-list-ul me-1"></i> All Vouchers
                                 </a>
-                                <button type="submit" class="btn btn-rv-primary">
-                                    <i class="bi bi-check-lg me-1"></i> Save Voucher
-                                </button>
                             </div>
                         </div>
 
@@ -269,10 +277,10 @@
                             <table class="table table-bordered align-middle mb-0" id="voucherTable">
                                 <thead>
                                     <tr>
-                                        <th style="width: 30%;">Account Head</th>
-                                        <th style="width: 35%;">Account</th>
-                                        <th style="width: 25%;">Amount</th>
-                                        <th style="width: 10%;">Action</th>
+                                        <th style="width: 28%;">Account Head</th>
+                                        <th style="width: 32%;">Account</th>
+                                        <th style="width: 24%;">Amount</th>
+                                        <th style="width: 16%;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -304,13 +312,17 @@
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="2" class="text-end fw-bold" style="font-size: 1rem;">Total Amount:</td>
-                                        <td>
+                                        <td colspan="2" class="text-end fw-bold" style="font-size: 1rem; vertical-align: middle;">Total Amount:</td>
+                                        <td style="vertical-align: middle;">
                                             <input type="text" name="total_amount"
                                                 class="rv-input text-end fw-bold" id="totalAmount" readonly
                                                 value="0.00" style="background: #f0fdf4; border-color: #86efac; font-size: 1.1rem; color: #16a34a;">
                                         </td>
-                                        <td></td>
+                                        <td class="text-center p-1" style="vertical-align: middle;">
+                                            <button type="submit" class="btn btn-rv-primary w-100 py-2 px-2 fw-bold d-flex align-items-center justify-content-center" id="btnSavePrint" style="font-size: 0.88rem; white-space: nowrap; height: 38px; border-radius: 8px;">
+                                                <i class="bi bi-printer me-1"></i> Save (Print)
+                                            </button>
+                                        </td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -431,6 +443,17 @@
                 calculateTotal();
             });
 
+            // Prevent arrow up/down keys and scroll wheel from changing amount / number values
+            $(document).on('keydown', 'input[type="number"], .amount', function(e) {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.keyCode === 38 || e.keyCode === 40) {
+                    e.preventDefault();
+                }
+            });
+
+            $(document).on('wheel', 'input[type="number"], .amount', function(e) {
+                $(this).blur();
+            });
+
             // Add Row
             $('#addNewRow').on('click', function() {
                 let newRow = `
@@ -464,6 +487,63 @@
                     $(this).closest('tr').remove();
                     calculateTotal();
                 }
+            });
+
+            // Handle Save (Print) Form Submission
+            $('#receiptForm').on('submit', function(e) {
+                e.preventDefault();
+
+                let partyType = $('#partyType').val();
+                let partyId = $('#partyId').val();
+
+                if (!partyId && (partyType === 'customer' || partyType === 'vendor' || partyType === 'walkin')) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Party Required',
+                        text: 'Please select a Party / Account first.'
+                    });
+                    return;
+                }
+
+                let totalAmt = parseFloat($('#totalAmount').val()) || 0;
+                if (totalAmt <= 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Amount Required',
+                        text: 'Please enter a valid Amount greater than 0.'
+                    });
+                    return;
+                }
+
+                let $btn = $('#btnSavePrint');
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...');
+
+                $.ajax({
+                    url: $(this).attr('action'),
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    dataType: 'json',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    success: function(res) {
+                        if (res && res.success) {
+                            // Redirect directly to the thermal invoice print page
+                            window.location.href = res.print_url;
+                        } else {
+                            $btn.prop('disabled', false).html('<i class="bi bi-printer me-1"></i> Save (Print)');
+                            Swal.fire('Error', res.message || 'Failed to save voucher.', 'error');
+                        }
+                    },
+                    error: function(xhr) {
+                        $btn.prop('disabled', false).html('<i class="bi bi-printer me-1"></i> Save (Print)');
+                        let msg = 'Failed to save voucher.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            msg = xhr.responseJSON.message;
+                        }
+                        Swal.fire('Error', msg, 'error');
+                    }
+                });
             });
         });
     </script>

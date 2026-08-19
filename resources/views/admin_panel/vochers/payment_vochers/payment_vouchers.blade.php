@@ -175,6 +175,17 @@
         }
         .balance-dr { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
         .balance-cr { background: #f0fdf4; color: #16a34a; border: 1px solid #86efac; }
+
+        /* Disable number input spin buttons / up-down arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] { 
+            -moz-appearance: textfield; 
+            appearance: textfield;
+        }
     </style>
 
     <div class="main-content">
@@ -416,6 +427,17 @@
             }
             $(document).on('input', '.amount', function() {
                 calculateTotal();
+            });
+
+            // Prevent arrow up/down keys and scroll wheel from changing amount / number values
+            $(document).on('keydown', 'input[type="number"], .amount', function(e) {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.keyCode === 38 || e.keyCode === 40) {
+                    e.preventDefault();
+                }
+            });
+
+            $(document).on('wheel', 'input[type="number"], .amount', function(e) {
+                $(this).blur();
             });
 
             // Add Row
