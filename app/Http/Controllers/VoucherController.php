@@ -169,8 +169,24 @@ class VoucherController extends Controller
     {
         \Log::info('Print Voucher Requested. ID: '.$id);
 
-        // 1. Try V2 VoucherMaster First
-        $voucherV2 = \App\Models\VoucherMaster::find($id);
+        // 1. Try V2 VoucherMaster of type receipt by ID
+        $voucherV2 = \App\Models\VoucherMaster::where('id', $id)
+            ->where('voucher_type', \App\Models\VoucherMaster::TYPE_RECEIPT)
+            ->first();
+
+        // 2. If not found by VoucherMaster ID, check if $id is from legacy ReceiptsVoucher or by RVID reference
+        if (! $voucherV2) {
+            $legacyRec = ReceiptsVoucher::find($id);
+            if ($legacyRec) {
+                $voucherV2 = \App\Models\VoucherMaster::where('voucher_type', \App\Models\VoucherMaster::TYPE_RECEIPT)
+                    ->where(function($q) use ($legacyRec) {
+                        $q->where('remarks', 'like', "%(Ref: {$legacyRec->rvid})%")
+                          ->orWhere('remarks', 'like', "%#{$legacyRec->rvid}%")
+                          ->orWhere('voucher_no', $legacyRec->rvid);
+                    })
+                    ->first();
+            }
+        }
 
         if ($voucherV2) {
             \Log::info('Found V2 Voucher: '.$voucherV2->voucher_no);
@@ -178,18 +194,17 @@ class VoucherController extends Controller
             // Lazy load relationships to avoid eager loading weirdness
             $voucherV2->load(['details.account', 'party']);
 
+            $debitSum = (float) $voucherV2->details->where('debit', '>', 0)->sum('debit');
+            $voucherAmount = $debitSum > 0 ? $debitSum : (float) ($voucherV2->total_amount ?: $voucherV2->amount);
+
             // -- Adapter for V2 to V1 View --
             $voucher = (object) [
                 'rvid' => $voucherV2->voucher_no,
-                'receipt_date' => $voucherV2->date->format('Y-m-d'),
-                'total_amount' => $voucherV2->amount,
+                'receipt_date' => $voucherV2->date ? $voucherV2->date->format('Y-m-d') : now()->format('Y-m-d'),
+                'total_amount' => $voucherAmount,
                 'remarks' => $voucherV2->remarks,
                 'type' => 'unknown', // Default
             ];
-
-            if (! isset($voucher->total_amount)) {
-                $voucher->total_amount = $voucherV2->total_amount;
-            }
 
             $rows = [];
             foreach ($voucherV2->details as $detail) {
@@ -203,7 +218,6 @@ class VoucherController extends Controller
                 $accCode   = $detail->account->account_code ?? '-';
                 $headName  = $detail->account->accountHead->name ?? '-';
 
-                // Clean label: "Hand Cash" not "Hand Cash (Receipt) [Code: ACC-0004]"
                 $rows[] = [
                     'narration'    => $detail->narration,
                     'reference'    => '-',
@@ -222,33 +236,61 @@ class VoucherController extends Controller
                 if ($party instanceof \App\Models\Customer) {
                     $voucher->type = ($party->customer_type == 'Walking Customer') ? 'walkin' : 'customer';
 
-                    // Ensure fields expected by view exist
-                    $party->name = $party->customer_name; // Fallback
+                    $party->name = $party->customer_name;
                     $party->address = $party->address ?? '-';
                     $party->mobile = $party->mobile ?? '-';
 
-                    $previousBalance = \App\Models\CustomerLedger::where('customer_id', $party->id)
-                        ->where('created_at', '<', $voucherV2->created_at)
+                    // Find CustomerLedger entry associated with this voucher
+                    $ledgerEntry = \App\Models\CustomerLedger::where('customer_id', $party->id)
+                        ->where(function($q) use ($voucherV2) {
+                            $q->where('description', 'like', "%{$voucherV2->voucher_no}%");
+                            if (preg_match('/Ref:\s*([^)]+)/', $voucherV2->remarks, $matches)) {
+                                $q->orWhere('description', 'like', "%{$matches[1]}%");
+                            }
+                        })
                         ->orderBy('id', 'desc')
-                        ->value('closing_balance') ?? ($party->opening_balance ?? 0);
+                        ->first();
+
+                    if ($ledgerEntry) {
+                        $previousBalance = (float) $ledgerEntry->previous_balance;
+                    } else {
+                        $previousBalance = (float) (\App\Models\CustomerLedger::where('customer_id', $party->id)
+                            ->where('created_at', '<', $voucherV2->created_at)
+                            ->orderBy('id', 'desc')
+                            ->value('closing_balance') ?? ($party->opening_balance ?? 0));
+                    }
 
                 } elseif ($party instanceof \App\Models\Vendor) {
                     $voucher->type = 'vendor';
                     $party->address = $party->address ?? '-';
-                    $party->phone = $party->phone ?? '-'; // View uses phone
+                    $party->phone = $party->phone ?? '-';
 
-                    $previousBalance = \App\Models\VendorLedger::where('vendor_id', $party->id)
-                        ->where('created_at', '<', $voucherV2->created_at)
+                    $ledgerEntry = \App\Models\VendorLedger::where('vendor_id', $party->id)
+                        ->where(function($q) use ($voucherV2) {
+                            $q->where('description', 'like', "%{$voucherV2->voucher_no}%");
+                            if (preg_match('/Ref:\s*([^)]+)/', $voucherV2->remarks, $matches)) {
+                                $q->orWhere('description', 'like', "%{$matches[1]}%");
+                            }
+                        })
                         ->orderBy('id', 'desc')
-                        ->value('closing_balance') ?? ($party->opening_balance ?? 0);
+                        ->first();
+
+                    if ($ledgerEntry) {
+                        $previousBalance = (float) $ledgerEntry->previous_balance;
+                    } else {
+                        $previousBalance = (float) (\App\Models\VendorLedger::where('vendor_id', $party->id)
+                            ->where('created_at', '<', $voucherV2->created_at)
+                            ->orderBy('id', 'desc')
+                            ->value('closing_balance') ?? ($party->opening_balance ?? 0));
+                    }
 
                 } elseif ($party instanceof \App\Models\Account) {
-                    $voucher->type = '1'; // Numeric triggers Account Block
+                    $voucher->type = '1';
                     $party->name = $party->title;
                     $party->phone = $party->account_code;
                     $party->head_name = $party->accountHead->name ?? 'Account';
 
-                    $previousBalance = $party->opening_balance;
+                    $previousBalance = (float) ($party->opening_balance ?? 0);
                 }
             } else {
                 $previousBalance = 0;
@@ -484,8 +526,9 @@ class VoucherController extends Controller
                         ];
                     }
 
+                    $v2Master = null;
                     if (! empty($v2Lines)) {
-                        app(\App\Services\VoucherService::class)->createVoucher([
+                        $v2Master = app(\App\Services\VoucherService::class)->createVoucher([
                             'voucher_type' => 'receipt',
                             'date' => $request->receipt_date,
                             'status' => 'posted',
@@ -525,17 +568,19 @@ class VoucherController extends Controller
 
             DB::commit();
 
+            $targetPrintId = isset($v2Master) && $v2Master ? $v2Master->id : $rec->id;
+
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Receipt Voucher saved successfully!',
-                    'voucher_id' => $rec->id,
-                    'print_url' => route('print', $rec->id),
+                    'voucher_id' => $targetPrintId,
+                    'print_url' => route('print', $targetPrintId),
                     'all_vouchers_url' => route('all_recepit_vochers'),
                 ]);
             }
 
-            return redirect()->route('print', $rec->id)->with('success', 'Receipt Voucher saved successfully!');
+            return redirect()->route('print', $targetPrintId)->with('success', 'Receipt Voucher saved successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
 
