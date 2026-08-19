@@ -61,12 +61,12 @@ class SaleController extends Controller
             $query->where('customer_id', $request->customer_id);
         }
 
-        // Order By
-        $orderBy = $request->input('order_by', 'created_at');
+        // Order By (Most recent / newest on top)
+        $orderBy = $request->input('order_by', 'id');
         if ($orderBy === 'invoice_no') {
-            $query->orderBy('invoice_no', 'desc');
+            $query->orderBy('invoice_no', 'desc')->orderBy('id', 'desc');
         } else {
-            $query->orderBy('created_at', 'desc');
+            $query->orderBy('id', 'desc');
         }
 
         $sales = $query->get();
@@ -492,7 +492,7 @@ class SaleController extends Controller
 
     public function salereturnview()
     {
-        $SaleReturns = SaleReturn::with(['sale.customer_relation', 'customer_relation'])->orderBy('created_at', 'desc')->get();
+        $SaleReturns = SaleReturn::with(['sale.customer_relation', 'customer_relation'])->orderBy('id', 'desc')->get();
 
         // Calculate stats
         $stats = [

@@ -16,7 +16,7 @@ class ProductBookingController extends Controller
         // User Request: "getting only posted sale information"
         $bookings = Sale::with(['customer_relation', 'items.product'])
             ->where('is_booking', 1) // Show ONLY bookings (both pending and confirmed)
-            ->latest()
+            ->orderBy('id', 'desc')
             ->get();
 
         return view('admin_panel.booking.index', compact('bookings'));
