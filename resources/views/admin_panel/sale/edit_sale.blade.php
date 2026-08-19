@@ -828,9 +828,10 @@
                                                     <!-- Size -->
                                                     <td class="col-size">
                                                         <input type="text"
-                                                            class="form-control size-display text-center input-readonly"
-                                                            readonly value="{{ $vSize ?? '-' }}"
-                                                            tabindex="-1">
+                                                            class="form-control size-display text-center"
+                                                            name="size_display[]"
+                                                            value="{{ ($vSize ?? '') !== '-' ? ($vSize ?? '') : '' }}"
+                                                            placeholder="-">
                                                         <input type="hidden" class="pack-qty" name="pack_qty[]" value="{{ $ppb }}">
                                                     </td>
                                                     

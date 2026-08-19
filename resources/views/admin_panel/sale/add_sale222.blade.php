@@ -704,9 +704,9 @@
                                                 <input type="number" class="form-control loose-pcs-input text-end" name="loose_qty[]" placeholder="" min="0" value="">
                                             </td>
 
-                                            <!-- Size (Display - readonly) -->
+                                            <!-- Size -->
                                             <td class="col-size">
-                                                <input type="text" class="form-control size-display text-center input-readonly" readonly tabindex="-1" placeholder="-">
+                                                <input type="text" class="form-control size-display text-center" name="size_display[]" placeholder="-">
                                                 <input type="hidden" class="pack-qty" name="pack_qty[]" value="1">
                                             </td>
 

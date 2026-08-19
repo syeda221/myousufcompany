@@ -171,9 +171,9 @@
       <input type="number" class="form-control loose-pcs-input text-end" name="loose_qty[]" placeholder="" min="0" value="">
     </td>
 
-    <!-- Size (Display - readonly) -->
+    <!-- Size -->
     <td class="col-size">
-       <input type="text" class="form-control size-display text-center input-readonly" readonly tabindex="-1" placeholder="-">
+       <input type="text" class="form-control size-display text-center" name="size_display[]" placeholder="-">
        <input type="hidden" class="pack-qty" name="pack_qty[]" value="1">
     </td>
 
@@ -937,7 +937,7 @@
             }
             
             // Set size and color display
-            $row.find('.size-display').val(variantSize);
+            $row.find('.size-display').val(variantSize !== '-' ? variantSize : '');
             $row.find('.color-display').val(variantColor);
             
             // Store variant stock for later use (after warehouse loads)
@@ -1167,6 +1167,33 @@
             computeRow($(this).closest('tr'), true);
             updateGrandTotals();
             refreshPostedState();
+        });
+
+        // Size Display Input Sync
+        $(document).on('input change', '.size-display', function() {
+            const $row = $(this).closest('tr');
+            const newSize = $(this).val().trim();
+            let variantData = {};
+            const existingVd = $row.find('.variant-data-hidden').val();
+            if (existingVd) {
+                try {
+                    const decoded = atob(existingVd);
+                    variantData = JSON.parse(decoded);
+                } catch(e) {
+                    try {
+                        variantData = JSON.parse(existingVd);
+                    } catch(e2) {
+                        variantData = { color: $row.find('.color-display').val() || '-' };
+                    }
+                }
+            } else {
+                variantData = { color: $row.find('.color-display').val() || '-' };
+            }
+            if (typeof variantData !== 'object' || variantData === null) {
+                variantData = { color: $row.find('.color-display').val() || '-' };
+            }
+            variantData.size = newSize;
+            $row.find('.variant-data-hidden').val(btoa(JSON.stringify(variantData)));
         });
 
         // Delete Row

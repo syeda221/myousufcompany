@@ -1252,10 +1252,26 @@ class SaleController extends Controller
 
                 $lineTotal = max(0, $lineTotal - $calcDiscountAmount);
 
+                $colorVal = $request->color[$index] ?? null;
+                $sizeVal = $request->size_display[$index] ?? ($request->size[$index] ?? null);
+
+                if ($sizeVal !== null && $sizeVal !== '' && $sizeVal !== '-') {
+                    $vData = [];
+                    if (!empty($colorVal)) {
+                        $b64 = base64_decode($colorVal, true);
+                        $vData = ($b64 !== false) ? json_decode($b64, true) : json_decode($colorVal, true);
+                    }
+                    if (!is_array($vData)) {
+                        $vData = [];
+                    }
+                    $vData['size'] = $sizeVal;
+                    $colorVal = base64_encode(json_encode($vData));
+                }
+
                 $saleItem = new SaleItem;
                 $saleItem->sale_id = $sale->id;
                 $saleItem->product_id = $isManual ? null : $pid;
-                $saleItem->color = $request->color[$index] ?? null;
+                $saleItem->color = $colorVal;
                 $saleItem->warehouse_id = !empty($warehouses[$index]) ? $warehouses[$index] : $defaultWhId;
                 $saleItem->product_name = $productName; // Store name snapshot
 
