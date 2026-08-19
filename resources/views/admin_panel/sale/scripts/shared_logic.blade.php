@@ -610,8 +610,10 @@
                     if (res?.ok) {
                         const bid = res.booking_id || existing;
                         $('#booking_id').val(bid);
-                        Swal.fire('Saved', 'Sale saved successfully', 'success');
-                        resolve(bid);
+                        if ($('#action').val() === 'booking') {
+                            Swal.fire('Saved', 'Sale saved as booking successfully', 'success');
+                        }
+                        resolve(res);
                     } else {
                         Swal.fire('Error', res.msg || 'Save failed', 'error');
                         reject(res);
@@ -1349,10 +1351,16 @@
                 return;
             }
 
-            ensureSaved().then(function(bid) {
+            ensureSaved().then(function(res) {
+                const id = (res && res.booking_id) ? res.booking_id : res;
+                const thermalUrl = (res && res.receipt_url) ? res.receipt_url : ('{{ url('sales') }}/' + id + '/recepit');
+
+                // Open thermal sale receipt directly
+                window.open(thermalUrl, '_blank');
+
                 Swal.fire({
                     title: 'Success!',
-                    text: 'Sale Saved & Posted Successfully',
+                    text: 'Sale Posted & Receipt Opened Successfully',
                     icon: 'success',
                     timer: 1500,
                     showConfirmButton: false
