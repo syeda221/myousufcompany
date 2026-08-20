@@ -921,62 +921,74 @@
                 }
             });
 
+            function escapeHtml(str) {
+                if (str === null || str === undefined) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            }
+
             function addBaseVariantRow(v = null) {
                 const tr = document.createElement('tr');
-                const productName = productNameInput.value || '';
+                const productName = productNameInput ? productNameInput.value || '' : '';
                 const baseUnitName = unitDropdown ? unitDropdown.options[unitDropdown.selectedIndex].text : 'Kg';
                 const isCartonMode = unitDropdown && unitDropdown.value === 'by_cartons';
-                const vid = 'base_' + Date.now();
+                const vid = 'base_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
                 
-                const nameVal = v ? (v.name || productName) : productName;
+                const nameVal = v ? (v.name !== undefined && v.name !== null && v.name !== '' ? v.name : productName) : productName;
                 const sizeVal = v ? (v.size || '') : '';
                 const colorVal = v ? (v.color || '') : '';
                 const unitVal = v ? (v.unit || (isCartonMode ? 'Carton' : baseUnitName)) : (isCartonMode ? 'Carton' : baseUnitName);
-                const stockVal = v ? (v.stock || 0) : '0';
-                const convVal = v ? (v.conv_factor || (isCartonMode ? '0' : '1')) : (isCartonMode ? '0' : '1');
-                const weightVal = v ? (v.weight_per_piece || 1000) : 1000;
-                const saleVal = v ? (v.sale_price || '') : '';
-                const wholesaleVal = v ? (v.wholesale_price || '') : '0';
-                const purchVal = v ? (v.purch_price || '') : '';
-                const alertVal = v ? (v.alert || 0) : '0';
-                const barcodeVal = v ? (v.barcode || '') : generateRandomBarcode();
+                const stockVal = (v && v.stock !== undefined && v.stock !== null && v.stock !== '') ? v.stock : '0';
+                const convVal = (v && v.conv_factor !== undefined && v.conv_factor !== null && v.conv_factor !== '') ? v.conv_factor : (isCartonMode ? '0' : '1');
+                const weightVal = (v && v.weight_per_piece !== undefined && v.weight_per_piece !== null && v.weight_per_piece !== '') ? v.weight_per_piece : 1000;
+                const saleVal = (v && v.sale_price !== undefined && v.sale_price !== null) ? v.sale_price : '';
+                const wholesaleVal = (v && v.wholesale_price !== undefined && v.wholesale_price !== null) ? v.wholesale_price : '0';
+                const purchVal = (v && v.purch_price !== undefined && v.purch_price !== null) ? v.purch_price : '';
+                const alertVal = (v && v.alert !== undefined && v.alert !== null) ? v.alert : '0';
+                const barcodeVal = (v && v.barcode !== undefined && v.barcode !== null && v.barcode !== '') ? v.barcode : generateRandomBarcode();
+                
+                const uNorm = (unitVal || '').toLowerCase();
                 
                 tr.innerHTML = `
                     <td class="p-1 align-middle">
-                        <input type="text" class="form-control-pro form-control-sm base-name-input fw-bold" name="variant_name[]" value="${nameVal}" placeholder="Name" data-vid="${vid}">
+                        <input type="text" class="form-control-pro form-control-sm base-name-input fw-bold" name="variant_name[]" value="${escapeHtml(nameVal)}" placeholder="Name" data-vid="${vid}">
                         <input type="hidden" name="variant_is_base[]" value="1">
                     </td>
-                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_size[]" value="${sizeVal}" placeholder="Size"></td>
-                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_color[]" value="${colorVal}" placeholder="Color"></td>
+                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_size[]" value="${escapeHtml(sizeVal)}" placeholder="Size"></td>
+                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_color[]" value="${escapeHtml(colorVal)}" placeholder="Color"></td>
                     <td class="p-1">
                         <select class="form-select form-select-sm fw-bold text-primary px-1" name="variant_unit[]" style="font-size:11px;">
-                            <option value="Carton" ${unitVal==='Carton'||isCartonMode?'selected':''}>Carton</option>
-                            <option value="Pcs" ${(!isCartonMode && unitVal==='Pcs')?'selected':''}>Pcs</option>
-                            <option value="Kg" ${unitVal==='Kg'?'selected':''}>Kg</option>
-                            <option value="Gm" ${unitVal==='Gm'?'selected':''}>Gm</option>
-                            <option value="Ft" ${unitVal==='Ft'?'selected':''}>Ft</option>
-                            <option value="Meter" ${unitVal==='Meter'?'selected':''}>Mtr</option>
-                            <option value="Box">Box</option>
-                            <option value="Dozen">Dzn</option>
+                            <option value="Carton" ${uNorm==='carton'||(isCartonMode && !v)?'selected':''}>Carton</option>
+                            <option value="Pcs" ${(!isCartonMode && (uNorm==='pcs'||uNorm==='piece'||uNorm==='pieces'||uNorm==='pc'))?'selected':''}>Pcs</option>
+                            <option value="Kg" ${uNorm==='kg'?'selected':''}>Kg</option>
+                            <option value="Gm" ${uNorm==='gm'||uNorm==='g'?'selected':''}>Gm</option>
+                            <option value="Ft" ${uNorm==='ft'||uNorm==='feet'?'selected':''}>Ft</option>
+                            <option value="Meter" ${uNorm==='meter'||uNorm==='mtr'||uNorm==='m'?'selected':''}>Mtr</option>
+                            <option value="Box" ${uNorm==='box'?'selected':''}>Box</option>
+                            <option value="Dozen" ${uNorm==='dozen'||uNorm==='dzn'?'selected':''}>Dzn</option>
                         </select>
                     </td>
                     <td class="p-1">
-                        <input type="number" class="form-control-pro form-control-sm text-center fw-bold text-primary" name="variant_stock[]" step="any" value="${stockVal}" placeholder="0" title="${isCartonMode ? 'Initial Stock (Cartons)' : 'Initial Stock'}">
+                        <input type="number" class="form-control-pro form-control-sm text-center fw-bold text-primary" name="variant_stock[]" step="any" value="${escapeHtml(stockVal)}" placeholder="0" title="${isCartonMode ? 'Initial Stock (Cartons)' : 'Initial Stock'}">
                     </td>
                     <td class="p-0 conv-col">
-                        <input type="number" class="form-control-pro form-control-sm conv-factor-input text-center fw-bold ${isCartonMode ? 'text-primary' : ''}" name="variant_conv_factor[]" step="any" value="${convVal}" ${isCartonMode ? '' : 'readonly'} placeholder="0" title="${isCartonMode ? 'Pieces per Carton' : 'Base Conv Factor = 1'}" style="border-radius:0; border:1px solid #dee2e6; height:30px; ${isCartonMode ? 'background:#fff;' : 'background:#f8f8f8;'}">
+                        <input type="number" class="form-control-pro form-control-sm conv-factor-input text-center fw-bold ${isCartonMode ? 'text-primary' : ''}" name="variant_conv_factor[]" step="any" value="${escapeHtml(convVal)}" ${isCartonMode ? '' : 'readonly'} placeholder="0" title="${isCartonMode ? 'Pieces per Carton' : 'Base Conv Factor = 1'}" style="border-radius:0; border:1px solid #dee2e6; height:30px; ${isCartonMode ? 'background:#fff;' : 'background:#f8f8f8;'}">
                     </td>
                     <td class="p-0 piece-wt-only-col">
                         <div style="position:relative;">
-                            <input type="number" class="form-control-pro form-control-sm" name="variant_weight_per_piece[]" step="any" value="${weightVal}" readonly title="Auto from Conv Factor" style="padding-right:18px; border-radius:0; border:1px solid #dee2e6; height:30px; background:#f8f8f8;">
+                            <input type="number" class="form-control-pro form-control-sm" name="variant_weight_per_piece[]" step="any" value="${escapeHtml(weightVal)}" readonly title="Auto from Conv Factor" style="padding-right:18px; border-radius:0; border:1px solid #dee2e6; height:30px; background:#f8f8f8;">
                             <span style="position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:9px;color:#999;pointer-events:none;font-weight:600;">g</span>
                         </div>
                     </td>
-                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm base-sale-input" name="variant_sale_price[]" step="any" value="${saleVal}" placeholder="0.00" required></td>
-                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm" name="variant_wholesale_price[]" step="any" value="${wholesaleVal}" placeholder="0.00"></td>
-                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm base-purch-input" name="variant_purchase_price[]" step="any" value="${purchVal}" placeholder="0.00" required></td>
-                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm" name="variant_alert_qty[]" value="${alertVal}" placeholder="0"></td>
-                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_barcode[]" value="${barcodeVal}"></td>
+                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm base-sale-input" name="variant_sale_price[]" step="any" value="${escapeHtml(saleVal)}" placeholder="0.00" required></td>
+                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm" name="variant_wholesale_price[]" step="any" value="${escapeHtml(wholesaleVal)}" placeholder="0.00"></td>
+                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm base-purch-input" name="variant_purchase_price[]" step="any" value="${escapeHtml(purchVal)}" placeholder="0.00" required></td>
+                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm" name="variant_alert_qty[]" value="${escapeHtml(alertVal)}" placeholder="0"></td>
+                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_barcode[]" value="${escapeHtml(barcodeVal)}"></td>
                     <td class="p-1 text-center">
                         <span class="badge bg-primary px-2 py-1">Base</span>
                     </td>
@@ -1070,12 +1082,12 @@
 
             function addVariantRow(weightGrams = null, v = null) {
                 const tr = document.createElement('tr');
-                const vid = 'var_' + Date.now();
+                const vid = 'var_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
                 tr.dataset.vid = vid;
                 
                 const isCartonMode = unitDropdown && unitDropdown.value === 'by_cartons';
                 let factor = v ? parseFloat(v.conv_factor || (isCartonMode ? 1000 : 1)) : 1;
-                let suggestedName = v ? (v.name || '') : (productNameInput.value || '');
+                let suggestedName = v ? (v.name || '') : (productNameInput ? productNameInput.value || '' : '');
                 
                 if (weightGrams && !v) {
                     factor = parseFloat(weightGrams) > 10 ? parseFloat((weightGrams / 1000).toFixed(6)) : parseFloat(weightGrams);
@@ -1092,9 +1104,9 @@
                 let suggWholesale = '';
 
                 if (v) {
-                    suggSale = v.sale_price || '';
-                    suggPurch = v.purch_price || '';
-                    suggWholesale = v.wholesale_price || '';
+                    suggSale = (v.sale_price !== undefined && v.sale_price !== null) ? v.sale_price : '';
+                    suggPurch = (v.purch_price !== undefined && v.purch_price !== null) ? v.purch_price : '';
+                    suggWholesale = (v.wholesale_price !== undefined && v.wholesale_price !== null) ? v.wholesale_price : '';
                 } else if (variantMode === 'weight') {
                     suggSale = (baseSale * factor).toFixed(2);
                     suggPurch = (basePurch * factor).toFixed(2);
@@ -1108,48 +1120,50 @@
                 const sizeVal = v ? (v.size || '') : '';
                 const colorVal = v ? (v.color || '') : '';
                 const unitVal = v ? (v.unit || (isCartonMode ? 'Carton' : 'Pcs')) : (isCartonMode ? 'Carton' : 'Pcs');
-                const stockVal = v ? (v.stock || 0) : '0';
-                const convVal = v ? (v.conv_factor || (isCartonMode ? '0' : '')) : (isCartonMode ? '0' : '');
-                const weightVal = v ? (v.weight_per_piece || 0) : (weightGrams || (factor < 10 ? (factor * 1000).toFixed(1).replace(/\.0$/, '') : factor));
-                const alertVal = v ? (v.alert || 0) : '0';
-                const barcodeVal = v ? (v.barcode || '') : generateRandomBarcode();
+                const stockVal = (v && v.stock !== undefined && v.stock !== null && v.stock !== '') ? v.stock : '0';
+                const convVal = (v && v.conv_factor !== undefined && v.conv_factor !== null && v.conv_factor !== '') ? v.conv_factor : (isCartonMode ? '0' : '');
+                const weightVal = (v && v.weight_per_piece !== undefined && v.weight_per_piece !== null && v.weight_per_piece !== '') ? v.weight_per_piece : (weightGrams || (factor < 10 ? (factor * 1000).toFixed(1).replace(/\.0$/, '') : factor));
+                const alertVal = (v && v.alert !== undefined && v.alert !== null) ? v.alert : '0';
+                const barcodeVal = (v && v.barcode !== undefined && v.barcode !== null && v.barcode !== '') ? v.barcode : generateRandomBarcode();
+                
+                const uNorm = (unitVal || '').toLowerCase();
 
                 tr.innerHTML = `
                     <td class="p-1">
-                        <input type="text" class="form-control-pro form-control-sm var-name-input" name="variant_name[]" value="${suggestedName}" placeholder="Name">
+                        <input type="text" class="form-control-pro form-control-sm var-name-input" name="variant_name[]" value="${escapeHtml(suggestedName)}" placeholder="Name">
                         <input type="hidden" name="variant_is_base[]" value="0">
                     </td>
-                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_size[]" value="${sizeVal}" placeholder="Size (e.g. Small, 30cm)"></td>
-                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_color[]" value="${colorVal}" placeholder="Color"></td>
+                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_size[]" value="${escapeHtml(sizeVal)}" placeholder="Size (e.g. Small, 30cm)"></td>
+                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_color[]" value="${escapeHtml(colorVal)}" placeholder="Color"></td>
                     <td class="p-1">
                         <select class="form-select form-select-sm px-1 fw-bold text-dark" name="variant_unit[]" style="font-size:11px;">
-                            <option value="Carton" ${unitVal==='Carton'?'selected':''}>Carton</option>
-                            <option value="Pcs" ${unitVal==='Pcs'?'selected':''}>Pcs</option>
-                            <option value="Kg" ${unitVal==='Kg'?'selected':''}>Kg</option>
-                            <option value="Gm" ${unitVal==='Gm'?'selected':''}>Gm</option>
-                            <option value="Ft" ${unitVal==='Ft'?'selected':''}>Ft</option>
-                            <option value="Meter" ${unitVal==='Meter'?'selected':''}>Mtr</option>
-                            <option value="Box" ${unitVal==='Box'?'selected':''}>Box</option>
-                            <option value="Dozen" ${unitVal==='Dozen'?'selected':''}>Dzn</option>
+                            <option value="Carton" ${uNorm==='carton'||(isCartonMode && !v)?'selected':''}>Carton</option>
+                            <option value="Pcs" ${(!isCartonMode && (uNorm==='pcs'||uNorm==='piece'||uNorm==='pieces'||uNorm==='pc'))?'selected':''}>Pcs</option>
+                            <option value="Kg" ${uNorm==='kg'?'selected':''}>Kg</option>
+                            <option value="Gm" ${uNorm==='gm'||uNorm==='g'?'selected':''}>Gm</option>
+                            <option value="Ft" ${uNorm==='ft'||uNorm==='feet'?'selected':''}>Ft</option>
+                            <option value="Meter" ${uNorm==='meter'||uNorm==='mtr'||uNorm==='m'?'selected':''}>Mtr</option>
+                            <option value="Box" ${uNorm==='box'?'selected':''}>Box</option>
+                            <option value="Dozen" ${uNorm==='dozen'||uNorm==='dzn'?'selected':''}>Dzn</option>
                         </select>
                     </td>
                     <td class="p-1">
-                        <input type="number" class="form-control-pro form-control-sm text-center fw-bold text-primary stock-input" name="variant_stock[]" step="any" value="${stockVal}" placeholder="0" title="${isCartonMode ? 'Initial Stock (Cartons)' : 'Initial Stock'}" ${variantMode === 'weight' ? 'readonly style="background:#f8f9ff;color:#0d6efd;font-weight:bold;"' : ''}>
+                        <input type="number" class="form-control-pro form-control-sm text-center fw-bold text-primary stock-input" name="variant_stock[]" step="any" value="${escapeHtml(stockVal)}" placeholder="0" title="${isCartonMode ? 'Initial Stock (Cartons)' : 'Initial Stock'}" ${variantMode === 'weight' ? 'readonly style="background:#f8f9ff;color:#0d6efd;font-weight:bold;"' : ''}>
                     </td>
                     <td class="p-0 conv-col">
-                        <input type="text" inputmode="decimal" class="form-control-pro form-control-sm conv-factor-input text-center fw-bold text-success" name="variant_conv_factor[]" value="${convVal}" placeholder="0" title="${isCartonMode ? 'Pieces per Carton' : 'Conv Factor: weight per Pcs in base unit'}" style="border-radius:0; border:1px solid #198754; height:30px; border-width:1.5px;">
+                        <input type="text" inputmode="decimal" class="form-control-pro form-control-sm conv-factor-input text-center fw-bold text-success" name="variant_conv_factor[]" value="${escapeHtml(convVal)}" placeholder="0" title="${isCartonMode ? 'Pieces per Carton' : 'Conv Factor: weight per Pcs in base unit'}" style="border-radius:0; border:1px solid #198754; height:30px; border-width:1.5px;">
                     </td>
                     <td class="p-0 piece-wt-only-col">
                         <div style="position:relative;">
-                            <input type="number" class="form-control-pro form-control-sm piece-wt-display" name="variant_weight_per_piece[]" step="any" value="" placeholder="—" readonly title="Auto = Conv Factor × 1000" style="padding-right:18px; border-radius:0; border:1px solid #dee2e6; height:30px; background:#f0fff4; color:#198754; font-weight:600;">
+                            <input type="number" class="form-control-pro form-control-sm piece-wt-display" name="variant_weight_per_piece[]" step="any" value="${escapeHtml(weightVal)}" placeholder="—" readonly title="Auto = Conv Factor × 1000" style="padding-right:18px; border-radius:0; border:1px solid #dee2e6; height:30px; background:#f0fff4; color:#198754; font-weight:600;">
                             <span style="position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:9px;color:#198754;pointer-events:none;font-weight:700;">g</span>
                         </div>
                     </td>
-                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm sale-price-input" name="variant_sale_price[]" step="any" value="${suggSale}" placeholder="0.00" required></td>
-                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm" name="variant_wholesale_price[]" step="any" value="${suggWholesale}" placeholder="0.00"></td>
-                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm purch-price-input" name="variant_purchase_price[]" step="any" value="${suggPurch}" placeholder="0.00" required></td>
-                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm" name="variant_alert_qty[]" value="${alertVal}" placeholder="0"></td>
-                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_barcode[]" value="${barcodeVal}"></td>
+                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm sale-price-input" name="variant_sale_price[]" step="any" value="${escapeHtml(suggSale)}" placeholder="0.00" required></td>
+                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm" name="variant_wholesale_price[]" step="any" value="${escapeHtml(suggWholesale)}" placeholder="0.00"></td>
+                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm purch-price-input" name="variant_purchase_price[]" step="any" value="${escapeHtml(suggPurch)}" placeholder="0.00" required></td>
+                    <td class="p-1"><input type="number" class="form-control-pro form-control-sm" name="variant_alert_qty[]" value="${escapeHtml(alertVal)}" placeholder="0"></td>
+                    <td class="p-1"><input type="text" class="form-control-pro form-control-sm" name="variant_barcode[]" value="${escapeHtml(barcodeVal)}"></td>
                     <td class="p-1 text-center">
                         <button type="button" class="btn btn-sm btn-outline-danger remove-var-btn p-1 px-2" title="Remove"><i class="fas fa-trash"></i></button>
                     </td>
@@ -1311,12 +1325,30 @@
                 }
             });
 
-            // Initialize existing variants
-            const existingColorStr = `{!! addslashes($product->color ?? 'null') !!}`;
+            // Initialize existing variants safely
             try {
-                const parsed = JSON.parse(existingColorStr);
-                if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
-                    // Determine mode initially based on existing data if possible, though unit dropdown should rule
+                let parsed = @json($variants ?? []);
+                if (typeof parsed === 'string') {
+                    try {
+                        parsed = JSON.parse(parsed);
+                        if (typeof parsed === 'string') {
+                            parsed = JSON.parse(parsed);
+                        }
+                    } catch(e) {
+                        parsed = [];
+                    }
+                }
+                
+                // If parsed is an object with numeric or string keys, or a single variant
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    if (parsed.name) {
+                        parsed = [parsed];
+                    } else {
+                        parsed = Object.values(parsed);
+                    }
+                }
+
+                if (Array.isArray(parsed) && parsed.length > 0) {
                     const currentUnit = unitDropdown ? unitDropdown.value : 'by_pieces';
                     variantMode = isWeightUnit(currentUnit) ? 'weight' : 'standard';
                     
@@ -1325,23 +1357,29 @@
                     variantsContainer.classList.remove('d-none');
                     variantsBody.innerHTML = ''; // clear default empty row
                     
-                    parsed.forEach(v => {
-                        if (variantMode === 'weight') {
-                            if (v.is_base_variant == 1) {
-                                addBaseVariantRow(v);
-                            } else {
-                                addVariantRow(null, v);
-                            }
+                    parsed.forEach((v, index) => {
+                        if (typeof v === 'string') {
+                            v = { name: v, color: v };
+                        }
+                        if (!v || typeof v !== 'object') return;
+
+                        if (v.is_base_variant == 1 || (index === 0 && (variantMode === 'weight' || v.is_base_variant === undefined || v.is_base_variant === null))) {
+                            addBaseVariantRow(v);
                         } else {
                             addVariantRow(null, v);
                         }
                     });
                 }
-            } catch(e) { console.error(e); }
- 
+            } catch(e) { console.error('Error loading variants:', e); }
+
             // Call updateMode to set initial visible states
             updateMode();
- 
+
+            // Mobile initial render if on mobile screen
+            if (typeof isMobile === 'function' && isMobile() && typeof rebuildMobileCards === 'function') {
+                rebuildMobileCards();
+            }
+
         });
 
         // ============================================================
@@ -1351,6 +1389,16 @@
 
         const isMobile = () => window.innerWidth < 768;
         let mobVariantIndex = 0;
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
 
         // ---- Build a mobile card HTML for a given table row ----
         function buildMobCard(tr, idx, isBase) {
@@ -1377,14 +1425,14 @@
             const stockReadonly = stockInp?.hasAttribute('readonly') ? 'readonly' : '';
 
             const isWeightMode = variantMode === 'weight';
-
             const label = nameVal || (isBase ? 'Base Variant' : 'Variant ' + (idx + 1));
+            const uNorm = (unitVal || '').toLowerCase();
 
             card.innerHTML = `
                 <div class="mob-card-header" onclick="mobToggleCard(this)">
                     <div class="mob-card-title">
                         <i class="fas fa-layer-group" style="color:${isBase ? '#5B4CF7' : '#94a3b8'};font-size:14px;flex-shrink:0;"></i>
-                        <span class="mob-card-label">${label}</span>
+                        <span class="mob-card-label">${escapeHtml(label)}</span>
                         ${isBase ? '<span class="mob-base-badge">Base</span>' : ''}
                     </div>
                     <svg class="mob-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -1393,29 +1441,29 @@
                     <div class="mob-section-label"><i class="fas fa-info-circle me-1"></i>Basic Info</div>
                     <div class="mob-field-group">
                         <div class="mob-label">Variant Name ${isBase ? '<span class="req">*</span>' : ''}</div>
-                        <input type="text" class="mob-input mob-sync" data-field="variant_name[]" value="${nameVal}" placeholder="e.g. Red - XL" autocomplete="off">
+                        <input type="text" class="mob-input mob-sync" data-field="variant_name[]" value="${escapeHtml(nameVal)}" placeholder="e.g. Red - XL" autocomplete="off">
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                         <div class="mob-field-group">
                             <div class="mob-label">Size</div>
-                            <input type="text" class="mob-input mob-sync" data-field="variant_size[]" value="${sizeVal}" placeholder="XL, M...">
+                            <input type="text" class="mob-input mob-sync" data-field="variant_size[]" value="${escapeHtml(sizeVal)}" placeholder="XL, M...">
                         </div>
                         <div class="mob-field-group">
                             <div class="mob-label">Color</div>
-                            <input type="text" class="mob-input mob-sync" data-field="variant_color[]" value="${colorVal}" placeholder="Red, Blue...">
+                            <input type="text" class="mob-input mob-sync" data-field="variant_color[]" value="${escapeHtml(colorVal)}" placeholder="Red, Blue...">
                         </div>
                     </div>
                     <div class="mob-field-group">
                         <div class="mob-label">Unit</div>
                         <select class="mob-select mob-sync" data-field="variant_unit[]">
-                            <option value="Carton" ${unitVal==='Carton'?'selected':''}>Carton</option>
-                            <option value="Pcs" ${unitVal==='Pcs'?'selected':''}>Pcs</option>
-                            <option value="Kg" ${unitVal==='Kg'?'selected':''}>Kg</option>
-                            <option value="Gm" ${unitVal==='Gm'?'selected':''}>Gm</option>
-                            <option value="Ft" ${unitVal==='Ft'?'selected':''}>Ft</option>
-                            <option value="Meter" ${unitVal==='Meter'?'selected':''}>Mtr</option>
-                            <option value="Box" ${unitVal==='Box'?'selected':''}>Box</option>
-                            <option value="Dozen" ${unitVal==='Dozen'?'selected':''}>Dzn</option>
+                            <option value="Carton" ${uNorm==='carton'?'selected':''}>Carton</option>
+                            <option value="Pcs" ${uNorm==='pcs'||uNorm==='piece'||uNorm==='pieces'||uNorm==='pc'?'selected':''}>Pcs</option>
+                            <option value="Kg" ${uNorm==='kg'?'selected':''}>Kg</option>
+                            <option value="Gm" ${uNorm==='gm'||uNorm==='g'?'selected':''}>Gm</option>
+                            <option value="Ft" ${uNorm==='ft'||uNorm==='feet'?'selected':''}>Ft</option>
+                            <option value="Meter" ${uNorm==='meter'||uNorm==='mtr'||uNorm==='m'?'selected':''}>Mtr</option>
+                            <option value="Box" ${uNorm==='box'?'selected':''}>Box</option>
+                            <option value="Dozen" ${uNorm==='dozen'||uNorm==='dzn'?'selected':''}>Dzn</option>
                         </select>
                     </div>
 
@@ -1424,13 +1472,13 @@
 
                     <div class="mob-field-group">
                         <div class="mob-label">Initial Stock ${isBase ? '' : (isWeightMode ? '🔵 Auto' : '')}</div>
-                        <input type="number" class="mob-input mob-sync ${!isBase && isWeightMode ? 'auto-field mob-stock-auto' : ''}" data-field="variant_stock[]" value="${stockVal}" placeholder="${!isBase && isWeightMode ? 'Auto' : '0'}" ${!isBase && isWeightMode ? 'readonly' : ''} step="any">
+                        <input type="number" class="mob-input mob-sync ${!isBase && isWeightMode ? 'auto-field mob-stock-auto' : ''}" data-field="variant_stock[]" value="${escapeHtml(stockVal)}" placeholder="${!isBase && isWeightMode ? 'Auto' : '0'}" ${!isBase && isWeightMode ? 'readonly' : ''} step="any">
                     </div>
 
                     ${unitDropdown && unitDropdown.value === 'by_cartons' ? `
                     <div class="mob-field-group">
                         <div class="mob-label" style="color:#0284c7;font-weight:700;">📦 Pieces Per Carton</div>
-                        <input type="number" class="mob-input conv-field mob-sync mob-conv-inp" data-field="variant_conv_factor[]" value="${convVal || '0'}" placeholder="0" autocomplete="off" style="border:1.5px solid #0284c7;">
+                        <input type="number" class="mob-input conv-field mob-sync mob-conv-inp" data-field="variant_conv_factor[]" value="${escapeHtml(convVal || '0')}" placeholder="0" autocomplete="off" style="border:1.5px solid #0284c7;">
                     </div>
                     ` : ''}
 
@@ -1438,12 +1486,12 @@
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                         <div class="mob-field-group">
                             <div class="mob-label" style="color:#059669;">🔢 Conv Factor</div>
-                            <input type="text" inputmode="decimal" class="mob-input conv-field mob-sync mob-conv-inp" data-field="variant_conv_factor[]" value="${convVal}" placeholder="0.000" autocomplete="off">
+                            <input type="text" inputmode="decimal" class="mob-input conv-field mob-sync mob-conv-inp" data-field="variant_conv_factor[]" value="${escapeHtml(convVal)}" placeholder="0.000" autocomplete="off">
                         </div>
                         <div class="mob-field-group">
                             <div class="mob-label" style="color:#059669;">⚖ Piece Wt (g)</div>
                             <div class="mob-suffix-wrap">
-                                <input type="number" class="mob-input mob-sync mob-piecewt" data-field="variant_weight_per_piece[]" value="${pieceWtVal}" placeholder="—" readonly style="background:#f0fdf4;color:#059669;font-weight:700;">
+                                <input type="number" class="mob-input mob-sync mob-piecewt" data-field="variant_weight_per_piece[]" value="${escapeHtml(pieceWtVal)}" placeholder="—" readonly style="background:#f0fdf4;color:#059669;font-weight:700;">
                                 <span class="mob-suffix">g</span>
                             </div>
                         </div>
@@ -1467,25 +1515,25 @@
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                         <div class="mob-field-group">
                             <div class="mob-label">Sale Price <span class="req">*</span></div>
-                            <input type="number" class="mob-input mob-sync" data-field="variant_sale_price[]" value="${saleVal}" placeholder="0.00" step="any" required>
+                            <input type="number" class="mob-input mob-sync" data-field="variant_sale_price[]" value="${escapeHtml(saleVal)}" placeholder="0.00" step="any" required>
                         </div>
                         <div class="mob-field-group">
                             <div class="mob-label">Wholesale Price</div>
-                            <input type="number" class="mob-input mob-sync" data-field="variant_wholesale_price[]" value="${wsaleVal}" placeholder="0.00" step="any">
+                            <input type="number" class="mob-input mob-sync" data-field="variant_wholesale_price[]" value="${escapeHtml(wsaleVal)}" placeholder="0.00" step="any">
                         </div>
                     </div>
                     <div class="mob-field-group">
                         <div class="mob-label">Purchase Price <span class="req">*</span></div>
-                        <input type="number" class="mob-input mob-sync" data-field="variant_purchase_price[]" value="${purchVal}" placeholder="0.00" step="any" required>
+                        <input type="number" class="mob-input mob-sync" data-field="variant_purchase_price[]" value="${escapeHtml(purchVal)}" placeholder="0.00" step="any" required>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                         <div class="mob-field-group">
                             <div class="mob-label">Alert Qty</div>
-                            <input type="number" class="mob-input mob-sync" data-field="variant_alert_qty[]" value="${alertVal}" placeholder="0" step="any">
+                            <input type="number" class="mob-input mob-sync" data-field="variant_alert_qty[]" value="${escapeHtml(alertVal)}" placeholder="0" step="any">
                         </div>
                         <div class="mob-field-group">
                             <div class="mob-label">Barcode</div>
-                            <input type="text" class="mob-input mob-sync" data-field="variant_barcode[]" value="${barcodeVal}" placeholder="Scan or type...">
+                            <input type="text" class="mob-input mob-sync" data-field="variant_barcode[]" value="${escapeHtml(barcodeVal)}" placeholder="Scan or type...">
                         </div>
                     </div>
 

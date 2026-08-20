@@ -1329,7 +1329,57 @@ class ProductController extends Controller
             $product->loose_pieces    = 0;
         }
 
-        return view('admin_panel.product.edit', compact('product', 'categories', 'subcategories', 'brands'));
+        // Robustly parse variants from $product->color
+        $variants = [];
+        if (!empty($product->color)) {
+            $raw = $product->color;
+            if (is_string($raw)) {
+                // Check if base64 encoded
+                $b64 = base64_decode($raw, true);
+                if ($b64 !== false && (str_starts_with(trim($b64), '[') || str_starts_with(trim($b64), '{'))) {
+                    $raw = $b64;
+                }
+                $decoded = json_decode($raw, true);
+                // Handle double json encoded strings
+                if (is_string($decoded)) {
+                    $decoded2 = json_decode($decoded, true);
+                    if (is_array($decoded2)) {
+                        $decoded = $decoded2;
+                    }
+                }
+            } else {
+                $decoded = $raw;
+            }
+
+            if (is_array($decoded)) {
+                if (isset($decoded['name'])) {
+                    $variants = [$decoded];
+                } elseif (isset($decoded[0])) {
+                    if (is_array($decoded[0])) {
+                        $variants = $decoded;
+                    } elseif (is_string($decoded[0])) {
+                        foreach ($decoded as $cName) {
+                            $variants[] = [
+                                'name' => $product->item_name . ($cName ? ' - ' . $cName : ''),
+                                'size' => '',
+                                'color' => $cName,
+                                'unit' => 'Pcs',
+                                'stock' => 0,
+                                'sale_price' => $product->sale_price_per_piece ?? $product->sale_price_per_box ?? 0,
+                                'wholesale_price' => $product->wholesale_price ?? 0,
+                                'purch_price' => $product->purchase_price_per_piece ?? 0,
+                                'alert' => $product->alert_quantity ?? 0,
+                                'barcode' => '',
+                                'conv_factor' => 1,
+                                'is_base_variant' => 0
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        return view('admin_panel.product.edit', compact('product', 'categories', 'subcategories', 'brands', 'variants'));
     }
 
     // ===== Barcode view =====
