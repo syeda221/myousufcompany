@@ -28,12 +28,35 @@ class SaleController extends Controller
             $query->where('sale_status', $request->status);
         }
 
+        // Helper for flexible date parsing
+        $parseDate = function ($dateStr) {
+            if (empty($dateStr)) return null;
+            $dateStr = trim($dateStr);
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateStr)) {
+                return $dateStr;
+            }
+            if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/', $dateStr, $m)) {
+                return sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]);
+            }
+            try {
+                return \Carbon\Carbon::parse($dateStr)->format('Y-m-d');
+            } catch (\Exception $e) {
+                return $dateStr;
+            }
+        };
+
         // Apply Date Filters
         if ($request->filled('from_date')) {
-            $query->whereDate('created_at', '>=', $request->from_date);
+            $fromDate = $parseDate($request->from_date);
+            if ($fromDate) {
+                $query->whereDate('created_at', '>=', $fromDate);
+            }
         }
         if ($request->filled('to_date')) {
-            $query->whereDate('created_at', '<=', $request->to_date);
+            $toDate = $parseDate($request->to_date);
+            if ($toDate) {
+                $query->whereDate('created_at', '<=', $toDate);
+            }
         }
 
         // Apply Mobile Number Filter
@@ -43,11 +66,14 @@ class SaleController extends Controller
             });
         }
 
-        // Apply Bill No (Invoice No / ID) Filter
-        if ($request->filled('bill_no')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('invoice_no', 'like', "%{$request->bill_no}%")
-                  ->orWhere('id', 'like', "%{$request->bill_no}%");
+        // Apply Bill No / Invoice No Filter
+        $billNo = $request->input('bill_no') ?? $request->input('invoice_no');
+        if (!empty($billNo)) {
+            $billNo = trim($billNo);
+            $query->where(function ($q) use ($billNo) {
+                $q->where('invoice_no', 'like', "%{$billNo}%")
+                  ->orWhere('reference', 'like', "%{$billNo}%")
+                  ->orWhere('id', 'like', "%{$billNo}%");
             });
         }
 

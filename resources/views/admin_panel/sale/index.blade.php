@@ -59,6 +59,46 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
         }
 
+        /* Select2 In Filter Panel */
+        .filter-panel .select2-container {
+            width: 100% !important;
+        }
+        .filter-panel .select2-container--default .select2-selection--single {
+            height: 38px !important;
+            border: 1.5px solid #cbd5e1 !important;
+            border-radius: 8px !important;
+            padding: 5px 8px !important;
+            background-color: #ffffff !important;
+        }
+        .filter-panel .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 26px !important;
+            color: #1e293b !important;
+            font-weight: 500 !important;
+            font-size: 13px !important;
+            padding-left: 0 !important;
+        }
+        .filter-panel .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px !important;
+            right: 6px !important;
+        }
+        .filter-panel .select2-container--default.select2-container--focus .select2-selection--single,
+        .filter-panel .select2-container--default.select2-container--open .select2-selection--single {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+        }
+        .select2-dropdown {
+            border: 1.5px solid #cbd5e1 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.1) !important;
+            z-index: 9999 !important;
+        }
+        .select2-search--dropdown .select2-search__field {
+            border: 1.5px solid #cbd5e1 !important;
+            border-radius: 6px !important;
+            padding: 6px 10px !important;
+            font-size: 13px !important;
+        }
+
         /* Premium Buttons */
         .btn-premium-primary {
             background-color: #2563eb !important;
@@ -366,28 +406,30 @@
                                         <label class="form-label mb-1">To Date</label>
                                         <input type="text" class="form-control datepicker-custom bg-white" name="to_date" id="filter_to_date" placeholder="dd/mm/yyyy">
                                     </div>
-                                    <div class="col-6 col-md-1">
-                                        <label class="form-label mb-1">Bill#</label>
-                                        <input type="text" class="form-control" name="bill_no" id="filter_bill_no" placeholder="Search bill...">
+                                    <div class="col-6 col-md-2">
+                                        <label class="form-label mb-1">Invoice / Bill#</label>
+                                        <input type="text" class="form-control" name="bill_no" id="filter_bill_no" value="{{ request('bill_no') ?? request('invoice_no') }}" placeholder="Inv / Bill#...">
                                     </div>
                                     <div class="col-6 col-md-1">
                                         <label class="form-label mb-1">M.Bill / Ref</label>
                                         <input type="text" class="form-control" name="reference" id="filter_reference" placeholder="M.Bill...">
                                     </div>
-                                    <div class="col-6 col-md-2">
+                                    <div class="col-6 col-md-3">
                                         <label class="form-label mb-1">Customer</label>
-                                        <select class="form-select" name="customer_id" id="filter_customer_id">
+                                        <select class="form-select select2-customer" name="customer_id" id="filter_customer_id" style="width: 100%;">
                                             <option value="">All Customers</option>
                                             @foreach ($customers as $c)
-                                                <option value="{{ $c->id }}">{{ $c->customer_name }}</option>
+                                                <option value="{{ $c->id }}" {{ request('customer_id') == $c->id ? 'selected' : '' }}>
+                                                    {{ $c->customer_name }} {{ $c->mobile ? '('.$c->mobile.')' : '' }}
+                                                </option>
                                             @endforeach
                                         </select>
                                     </div>
-                                    <div class="col-12 col-md-2 d-flex gap-2 mt-3 mt-md-0">
-                                        <button type="button" class="btn btn-premium-secondary w-50" id="btnReset">
+                                    <div class="col-12 d-flex justify-content-end gap-2 mt-2">
+                                        <button type="button" class="btn btn-premium-secondary px-3" id="btnReset">
                                             <i class="fas fa-undo me-1"></i>Reset
                                         </button>
-                                        <button type="submit" class="btn btn-premium-primary w-50" id="btnSearch">
+                                        <button type="submit" class="btn btn-premium-primary px-4" id="btnSearch">
                                             <i class="fas fa-search me-1"></i>Search
                                         </button>
                                     </div>
@@ -400,7 +442,7 @@
                             <table id="sales-table" class="table table-hover align-middle datanew premium-table" style="width:100%">
                                 <thead class="bg-light">
                                     <tr>
-                                        <th class="py-3 ps-3 rounded-start text-secondary fw-semibold text-uppercase small">Bill#</th>
+                                        <th class="py-3 ps-3 rounded-start text-secondary fw-semibold text-uppercase small">Invoice / Bill#</th>
                                         <th class="py-3 text-secondary fw-semibold text-uppercase small">Customer</th>
                                         <th class="py-3 text-secondary fw-semibold text-uppercase small">M.Bill</th>
                                         <th class="py-3 text-secondary fw-semibold text-uppercase small">Products</th>
@@ -431,6 +473,15 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         $(document).ready(function() {
+            // Initialize Select2 with search for customer dropdown
+            if ($('.select2-customer').length > 0) {
+                $('.select2-customer').select2({
+                    placeholder: "All Customers",
+                    allowClear: true,
+                    width: '100%'
+                });
+            }
+
             // Function to initialize DataTable
             function initDataTable() {
                 if ($.fn.DataTable.isDataTable('.datanew')) {
@@ -460,32 +511,48 @@
             // Quick Filter Logic
             $(document).on('change', '#quick_filter', function() {
                 let val = $(this).val();
+                if (val === 'custom') return;
+
                 let today = new Date();
                 let start = new Date();
                 let end = new Date();
 
                 if (val === 'daily') {
-                    // Start and end are both today
+                    // Today
+                    start = new Date();
+                    end = new Date();
                 } else if (val === 'weekly') {
                     let day = today.getDay();
                     let diff = today.getDate() - day + (day === 0 ? -6 : 1);
-                    start.setDate(diff);
+                    start = new Date(today.setDate(diff));
+                    end = new Date();
                 } else if (val === 'monthly') {
-                    start.setDate(1);
+                    start = new Date(today.getFullYear(), today.getMonth(), 1);
+                    end = new Date();
                 } else if (val === 'yearly') {
-                    start.setMonth(0, 1);
-                } else if (val === 'custom') {
-                    return;
+                    start = new Date(today.getFullYear(), 0, 1);
+                    end = new Date();
                 }
 
-                let pickerFrom = document.getElementById('filter_from_date')._flatpickr;
-                let pickerTo = document.getElementById('filter_to_date')._flatpickr;
-                if(pickerFrom) pickerFrom.setDate(start);
-                else $("#filter_from_date").val(start.toISOString().split('T')[0]);
-                
-                if(pickerTo) pickerTo.setDate(end);
-                else $("#filter_to_date").val(end.toISOString().split('T')[0]);
-                
+                let formatDate = function(d) {
+                    let year = d.getFullYear();
+                    let month = String(d.getMonth() + 1).padStart(2, '0');
+                    let day = String(d.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                };
+
+                let startStr = formatDate(start);
+                let endStr = formatDate(end);
+
+                let pickerFrom = document.getElementById('filter_from_date') ? document.getElementById('filter_from_date')._flatpickr : null;
+                let pickerTo = document.getElementById('filter_to_date') ? document.getElementById('filter_to_date')._flatpickr : null;
+
+                if (pickerFrom) pickerFrom.setDate(startStr, true);
+                else $("#filter_from_date").val(startStr);
+
+                if (pickerTo) pickerTo.setDate(endStr, true);
+                else $("#filter_to_date").val(endStr);
+
                 $('#filterForm').trigger('submit');
             });
 
@@ -535,6 +602,18 @@
             // Reset form
             $('#btnReset').on('click', function() {
                 $('#filterForm')[0].reset();
+                if ($('.select2-customer').length > 0) {
+                    $('.select2-customer').val('').trigger('change.select2');
+                }
+                
+                let pickerFrom = document.getElementById('filter_from_date') ? document.getElementById('filter_from_date')._flatpickr : null;
+                let pickerTo = document.getElementById('filter_to_date') ? document.getElementById('filter_to_date')._flatpickr : null;
+                if (pickerFrom) pickerFrom.clear();
+                if (pickerTo) pickerTo.clear();
+                $('#filter_from_date').val('');
+                $('#filter_to_date').val('');
+                $('#quick_filter').val('custom');
+
                 $('#filterForm').trigger('submit');
             });
 

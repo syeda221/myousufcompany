@@ -51,7 +51,14 @@
 
     {{-- Desktop Table Row (≥ 768px) --}}
     <tr class="border-bottom-0 d-none d-md-table-row">
-        <td class="ps-3 fw-bold text-muted font-monospace">#{{ $sale->id }}</td>
+        <td class="ps-3 fw-bold font-monospace">
+            @if ($sale->invoice_no)
+                <span class="text-primary fw-bold">{{ $sale->invoice_no }}</span>
+                <small class="text-muted d-block" style="font-size: 11px;">#{{ $sale->id }}</small>
+            @else
+                <span class="text-muted">#{{ $sale->id }}</span>
+            @endif
+        </td>
         <td>
             <div class="d-flex align-items-center">
                 <div class="avatar-circle bg-info-subtle text-info me-2 fw-bold d-flex align-items-center justify-content-center rounded-circle"
