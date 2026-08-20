@@ -420,16 +420,19 @@ Route::middleware('auth')->group(function () {
     Route::get('/all_recepit_vochers', [VoucherController::class, 'all_recepit_vochers'])->name('all_recepit_vochers');
     Route::get('/recepit_vochers', [VoucherController::class, 'recepit_vochers'])->name('recepit_vochers');
     Route::post('/store_rec_vochers', [VoucherController::class, 'store_rec_vochers'])->name('store_rec_vochers');
+    Route::delete('/recepit_vochers/{id}', [VoucherController::class, 'destroyReceiptVoucher'])->name('receipt_vouchers.destroy');
     Route::get('/print/{id}', [VoucherController::class, 'print'])->name('print');
 
     Route::get('/all_Payment_vochers', [VoucherController::class, 'all_Payment_vochers'])->name('all_Payment_vochers');
     Route::get('/Payment_vochers', [VoucherController::class, 'Payment_vochers'])->name('Payment_vochers');
     Route::post('/store_Pay_vochers', [VoucherController::class, 'store_Pay_vochers'])->name('store_Pay_vochers');
+    Route::delete('/Payment_vochers/{id}', [VoucherController::class, 'destroyPaymentVoucher'])->name('payment_vouchers.destroy');
     Route::get('/Paymentprint/{id}', [VoucherController::class, 'Paymentprint'])->name('Paymentprint');
 
     Route::get('/all_expense_vochers', [VoucherController::class, 'all_expense_vochers'])->name('all_expense_vochers');
     Route::get('/expense_vochers', [VoucherController::class, 'expense_vochers'])->name('expense_vochers');
     Route::post('/store_expense_vochers', [VoucherController::class, 'store_expense_vochers'])->name('store_expense_vochers');
+    Route::delete('/expense_vochers/{id}', [VoucherController::class, 'destroyExpenseVoucher'])->name('expense_vouchers.destroy');
     Route::get('/expenseprint/{id}', [VoucherController::class, 'expenseprint'])->name('expenseprint');
 
     // AJAX helpers for vouchers

@@ -1435,4 +1435,190 @@ class VoucherController extends Controller
             'accounts' => $accounts,
         ]);
     }
+
+    public function destroyReceiptVoucher($id)
+    {
+        DB::beginTransaction();
+        try {
+            // 1. Try finding V2 VoucherMaster
+            $voucherMaster = \App\Models\VoucherMaster::where('id', $id)
+                ->where('voucher_type', \App\Models\VoucherMaster::TYPE_RECEIPT)
+                ->first();
+
+            $legacyRec = null;
+            if ($voucherMaster) {
+                // Find matching legacy ReceiptsVoucher if exists
+                $legacyRec = ReceiptsVoucher::where('rvid', $voucherMaster->voucher_no)
+                    ->orWhere('remarks', 'like', "%{$voucherMaster->voucher_no}%")
+                    ->first();
+                if (!$legacyRec && preg_match('/Ref:\s*([^)]+)/', $voucherMaster->remarks ?? '', $m)) {
+                    $legacyRec = ReceiptsVoucher::where('rvid', trim($m[1]))->first();
+                }
+            } else {
+                // Check if $id is from legacy ReceiptsVoucher
+                $legacyRec = ReceiptsVoucher::find($id);
+                if ($legacyRec) {
+                    $voucherMaster = \App\Models\VoucherMaster::where('voucher_type', \App\Models\VoucherMaster::TYPE_RECEIPT)
+                        ->where(function($q) use ($legacyRec) {
+                            $q->where('voucher_no', $legacyRec->rvid)
+                              ->orWhere('remarks', 'like', "%{$legacyRec->rvid}%");
+                        })
+                        ->first();
+                }
+            }
+
+            if (!$voucherMaster && !$legacyRec) {
+                return back()->with('error', 'Receipt Voucher not found.');
+            }
+
+            $journalService = app(\App\Services\JournalEntryService::class);
+
+            if ($voucherMaster) {
+                // Reverse Journal Entries and update Account Balances
+                $journalService->reverseEntriesForSource($voucherMaster);
+
+                // Delete Details
+                $voucherMaster->details()->delete();
+
+                // Delete linked customer ledger entry if any
+                $partyId = $voucherMaster->party_id;
+                $vNo = $voucherMaster->voucher_no;
+                if ($partyId && \Illuminate\Support\Facades\Schema::hasColumn('customer_ledgers', 'description')) {
+                    CustomerLedger::where('customer_id', $partyId)
+                        ->where(function($q) use ($vNo, $legacyRec) {
+                            $q->where('description', 'like', "%{$vNo}%");
+                            if ($legacyRec && $legacyRec->rvid) {
+                                $q->orWhere('description', 'like', "%{$legacyRec->rvid}%");
+                            }
+                        })->delete();
+                }
+
+                $voucherMaster->delete();
+            }
+
+            if ($legacyRec) {
+                $journalService->reverseEntriesForSource($legacyRec);
+                $legacyRec->delete();
+            }
+
+            DB::commit();
+
+            return back()->with('success', 'Receipt Voucher deleted successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Receipt Voucher Delete Error: ' . $e->getMessage());
+            return back()->with('error', 'Failed to delete Receipt Voucher: ' . $e->getMessage());
+        }
+    }
+
+    public function destroyPaymentVoucher($id)
+    {
+        DB::beginTransaction();
+        try {
+            // 1. Try finding V2 VoucherMaster
+            $voucherMaster = \App\Models\VoucherMaster::where('id', $id)
+                ->where('voucher_type', \App\Models\VoucherMaster::TYPE_PAYMENT)
+                ->first();
+
+            $legacyPayment = null;
+            if ($voucherMaster) {
+                $legacyPayment = PaymentVoucher::where('pvid', $voucherMaster->voucher_no)
+                    ->orWhere('remarks', 'like', "%{$voucherMaster->voucher_no}%")
+                    ->first();
+                if (!$legacyPayment && preg_match('/Ref:\s*([^)]+)/', $voucherMaster->remarks ?? '', $m)) {
+                    $legacyPayment = PaymentVoucher::where('pvid', trim($m[1]))->first();
+                }
+            } else {
+                $legacyPayment = PaymentVoucher::find($id);
+                if ($legacyPayment) {
+                    $voucherMaster = \App\Models\VoucherMaster::where('voucher_type', \App\Models\VoucherMaster::TYPE_PAYMENT)
+                        ->where(function($q) use ($legacyPayment) {
+                            $q->where('voucher_no', $legacyPayment->pvid)
+                              ->orWhere('remarks', 'like', "%{$legacyPayment->pvid}%");
+                        })
+                        ->first();
+                }
+            }
+
+            if (!$voucherMaster && !$legacyPayment) {
+                return back()->with('error', 'Payment Voucher not found.');
+            }
+
+            $journalService = app(\App\Services\JournalEntryService::class);
+
+            if ($voucherMaster) {
+                // Reverse Journal Entries and update Account Balances
+                $journalService->reverseEntriesForSource($voucherMaster);
+
+                // Delete Details
+                $voucherMaster->details()->delete();
+
+                // Clean up customer ledger entries if applicable
+                $partyId = $voucherMaster->party_id;
+                $vNo = $voucherMaster->voucher_no;
+                if ($partyId && \Illuminate\Support\Facades\Schema::hasColumn('customer_ledgers', 'description')) {
+                    CustomerLedger::where('customer_id', $partyId)
+                        ->where(function($q) use ($vNo, $legacyPayment) {
+                            $q->where('description', 'like', "%{$vNo}%");
+                            if ($legacyPayment && $legacyPayment->pvid) {
+                                $q->orWhere('description', 'like', "%{$legacyPayment->pvid}%");
+                            }
+                        })->delete();
+                }
+
+                $voucherMaster->delete();
+            }
+
+            if ($legacyPayment) {
+                $journalService->reverseEntriesForSource($legacyPayment);
+                $legacyPayment->delete();
+            }
+
+            DB::commit();
+
+            return back()->with('success', 'Payment Voucher deleted successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Payment Voucher Delete Error: ' . $e->getMessage());
+            return back()->with('error', 'Failed to delete Payment Voucher: ' . $e->getMessage());
+        }
+    }
+
+    public function destroyExpenseVoucher($id)
+    {
+        DB::beginTransaction();
+        try {
+            $expense = ExpenseVoucher::find($id);
+
+            if (!$expense) {
+                return back()->with('error', 'Expense Voucher not found.');
+            }
+
+            $journalService = app(\App\Services\JournalEntryService::class);
+
+            // 1. Reverse all journal entries (this restores cash/bank/general expense account balances)
+            $journalService->reverseEntriesForSource($expense);
+
+            // 2. Revert customer ledger if affected
+            $evid = $expense->evid;
+            if ($expense->type === 'customer' && $expense->party_id) {
+                if (\Illuminate\Support\Facades\Schema::hasColumn('customer_ledgers', 'description')) {
+                    CustomerLedger::where('customer_id', $expense->party_id)
+                        ->where('description', 'like', "%{$evid}%")
+                        ->delete();
+                }
+            }
+
+            // 3. Delete expense voucher
+            $expense->delete();
+
+            DB::commit();
+
+            return back()->with('success', 'Expense Voucher deleted successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Expense Voucher Delete Error: ' . $e->getMessage());
+            return back()->with('error', 'Failed to delete Expense Voucher: ' . $e->getMessage());
+        }
+    }
 }

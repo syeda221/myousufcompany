@@ -64,10 +64,21 @@
                                                 @endif
                                             </td>
                                             <td>
-                                                <a href="{{ route('print', $item->id) }}" target="_blank"
-                                                    class="btn btn-sm btn-outline-danger" title="Print">
-                                                    <i class="bi bi-printer"></i>
-                                                </a>
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <a href="{{ route('print', $item->id) }}" target="_blank"
+                                                        class="btn btn-sm btn-outline-primary" title="Print">
+                                                        <i class="bi bi-printer"></i>
+                                                    </a>
+                                                    @can('receipts.voucher.delete')
+                                                    <form action="{{ route('receipt_vouchers.destroy', $item->id) }}" method="POST" class="d-inline delete-form">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="button" class="btn btn-sm btn-outline-danger delete-btn" title="Delete">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                    @endcan
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -80,4 +91,35 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('js')
+<script>
+    $(document).ready(function() {
+        if (!$.fn.DataTable.isDataTable('#example')) {
+            $('#example').DataTable({
+                order: [[0, 'desc']]
+            });
+        }
+
+        $(document).on('click', '.delete-btn', function(e) {
+            e.preventDefault();
+            let form = $(this).closest('form');
+
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "Do you want to delete this Receipt Voucher?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    });
+</script>
 @endsection
