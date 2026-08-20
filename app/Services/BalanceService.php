@@ -26,6 +26,8 @@ class BalanceService
             return 0;
         }
 
+        $this->ensureCustomerOpeningBalance($customer);
+
         // Sum of all journal entries for this customer (includes Opening Balance journal entry)
         $journalBalance = JournalEntry::where('party_type', Customer::class)
             ->where('party_id', $customer->id)
@@ -33,6 +35,63 @@ class BalanceService
             ->value('balance') ?? 0;
 
         return (float) $journalBalance;
+    }
+
+    /**
+     * Ensure Opening Balance Journal Entry and CustomerLedger exist if customer has opening_balance > 0.
+     */
+    public function ensureCustomerOpeningBalance(Customer $customer): void
+    {
+        $opening = (float) ($customer->opening_balance ?? 0);
+        if ($opening <= 0) {
+            return;
+        }
+
+        $hasObJournal = JournalEntry::where(function ($q) use ($customer) {
+            $q->where('source_type', Customer::class)->where('source_id', $customer->id)
+              ->orWhere(function ($sq) use ($customer) {
+                  $sq->where('party_type', Customer::class)->where('party_id', $customer->id);
+              });
+        })
+        ->where(function ($q) {
+            $q->where('description', 'Opening Balance')
+              ->orWhere('description', 'LIKE', 'Opening Balance%');
+        })
+        ->exists();
+
+        if (! $hasObJournal) {
+            try {
+                $journalService = app(JournalEntryService::class);
+                $arId = $this->getAccountsReceivableId();
+                $entryDate = $customer->created_at ? $customer->created_at->format('Y-m-d') : now()->format('Y-m-d');
+
+                $journalService->recordEntry(
+                    $customer,
+                    $arId,
+                    $opening,
+                    0,
+                    'Opening Balance',
+                    $entryDate,
+                    $customer
+                );
+
+                \App\Models\CustomerLedger::firstOrCreate(
+                    [
+                        'customer_id' => $customer->id,
+                        'previous_balance' => 0,
+                        'opening_balance' => $opening,
+                    ],
+                    [
+                        'admin_or_user_id' => auth()->id() ?? 1,
+                        'closing_balance' => $opening,
+                        'description' => 'Opening Balance',
+                        'created_at' => $customer->created_at ?? now(),
+                    ]
+                );
+            } catch (\Exception $e) {
+                \Log::error('ensureCustomerOpeningBalance error: ' . $e->getMessage());
+            }
+        }
     }
 
     /**
@@ -62,6 +121,8 @@ class BalanceService
                 'transactions' => [],
             ];
         }
+
+        $this->ensureCustomerOpeningBalance($customer);
 
         // Get opening balance (balance before start date)
         $openingBalance = $this->getCustomerBalanceBeforeDate($customerId, $startDate);
