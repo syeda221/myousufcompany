@@ -494,7 +494,7 @@
             $('#vendor_id').val(id);
             $('#vname').val(name);
             $('#vphone').val(phone);
-            $('#opening_balance').val(balance).prop('readonly', true);
+            $('#opening_balance').val(balance).prop('readonly', false);
             $('#vaddress').val(address);
 
             $('#modalTitle').html('<i class="fas fa-edit text-primary me-2"></i>Edit Vendor');

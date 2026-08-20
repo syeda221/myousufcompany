@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Vendor;
 use Illuminate\Support\Facades\Auth;
+use App\Models\JournalEntry;
 use App\Models\VendorLedger;
 use App\Models\VendorPayment;
 use App\Models\VendorBilty;
@@ -22,41 +23,18 @@ class VendorController extends Controller
     public function store(Request $request)
     {
         if ($request->id) {
-            // Update existing vendor (prevent balance update)
-            Vendor::findOrFail($request->id)->update($request->except('opening_balance'));
+            // Update existing vendor
+            $vendor = Vendor::findOrFail($request->id);
+            $vendor->update($request->all());
+
+            $newOpening = (float) ($request->opening_balance ?? 0);
+            $this->syncOpeningBalance($vendor, $newOpening);
         } else {
             // Create a new vendor and ledger entry
             $vendor = Vendor::create($request->all());
 
-            // Create ledger entry
-            VendorLedger::create([
-                'vendor_id' => $vendor->id,
-                'admin_or_user_id' => Auth::id(),
-                'opening_balance' => $request->opening_balance ?? 0,
-                'closing_balance' => $request->opening_balance ?? 0,
-                'previous_balance' => $request->previous_balance ?? 0,
-            ]);
-
-            // ✅ Record Journal Entry for Opening Balance (Accounting)
-            if ($request->opening_balance > 0) {
-                try {
-                    $balanceService = app(\App\Services\BalanceService::class);
-                    $journalService = app(\App\Services\JournalEntryService::class);
-                    $apId = $balanceService->getAccountsPayableId();
-
-                    $journalService->recordEntry(
-                        $vendor,
-                        $apId,
-                        0, // Debit
-                        $request->opening_balance, // Credit (Liability)
-                        "Opening Balance",
-                        now()->format('Y-m-d'),
-                        $vendor
-                    );
-                } catch (\Exception $e) {
-                    \Log::error("Vendor Opening Balance Journal Error: " . $e->getMessage());
-                }
-            }
+            $newOpening = (float) ($request->opening_balance ?? 0);
+            $this->syncOpeningBalance($vendor, $newOpening);
         }
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -68,6 +46,112 @@ class VendorController extends Controller
         }
 
         return back()->with('success', 'Saved Successfully');
+    }
+
+    /**
+     * Synchronize opening balance in VendorLedger and JournalEntry.
+     */
+    private function syncOpeningBalance(Vendor $vendor, float $newOpening)
+    {
+        try {
+            $balanceService = app(\App\Services\BalanceService::class);
+            $journalService = app(\App\Services\JournalEntryService::class);
+            $apId = $balanceService->getAccountsPayableId();
+            $entryDate = $vendor->created_at ? $vendor->created_at->format('Y-m-d') : now()->format('Y-m-d');
+
+            // 1. Find existing Opening Balance Journal Entry for this vendor
+            $obJournal = JournalEntry::where(function ($q) use ($vendor) {
+                $q->where('source_type', Vendor::class)->where('source_id', $vendor->id);
+            })
+            ->where(function ($q) {
+                $q->where('description', 'Opening Balance')
+                  ->orWhere('description', 'LIKE', 'Opening Balance%');
+            })
+            ->first();
+
+            if (!$obJournal) {
+                $obJournal = JournalEntry::where('party_type', Vendor::class)
+                    ->where('party_id', $vendor->id)
+                    ->where(function ($q) {
+                        $q->where('description', 'Opening Balance')
+                          ->orWhere('description', 'LIKE', 'Opening Balance%');
+                    })
+                    ->first();
+            }
+
+            if ($newOpening > 0) {
+                if ($obJournal) {
+                    $diff = $newOpening - (float) $obJournal->credit;
+                    if ($diff != 0) {
+                        $account = \App\Models\Account::find($obJournal->account_id ?: $apId);
+                        if ($account) {
+                            $account->current_balance = ($account->current_balance ?? 0) + $diff;
+                            $account->save();
+                        }
+                        $obJournal->credit = $newOpening;
+                        $obJournal->debit = 0;
+                        $obJournal->account_id = $obJournal->account_id ?: $apId;
+                        $obJournal->party_type = Vendor::class;
+                        $obJournal->party_id = $vendor->id;
+                        $obJournal->source_type = Vendor::class;
+                        $obJournal->source_id = $vendor->id;
+                        $obJournal->save();
+                    }
+                } else {
+                    $journalService->recordEntry(
+                        $vendor,
+                        $apId,
+                        0, // Debit
+                        $newOpening, // Credit (Liability)
+                        "Opening Balance",
+                        $entryDate,
+                        $vendor
+                    );
+                }
+            } else {
+                if ($obJournal) {
+                    $account = \App\Models\Account::find($obJournal->account_id);
+                    if ($account) {
+                        $account->current_balance = ($account->current_balance ?? 0) - (float) $obJournal->credit + (float) $obJournal->debit;
+                        $account->save();
+                    }
+                    $obJournal->delete();
+                }
+            }
+
+            // 2. Sync VendorLedger
+            $obLedger = VendorLedger::where('vendor_id', $vendor->id)
+                ->where(function ($q) {
+                    $q->where('previous_balance', 0)->where('opening_balance', '>', 0)
+                      ->orWhere('description', 'Opening Balance');
+                })
+                ->first();
+
+            if ($newOpening > 0) {
+                if ($obLedger) {
+                    $obLedger->update([
+                        'opening_balance' => $newOpening,
+                        'closing_balance' => $newOpening,
+                    ]);
+                } else {
+                    VendorLedger::create([
+                        'vendor_id' => $vendor->id,
+                        'admin_or_user_id' => Auth::id() ?? 1,
+                        'previous_balance' => 0,
+                        'opening_balance' => $newOpening,
+                        'closing_balance' => $newOpening,
+                        'description' => 'Opening Balance',
+                        'created_at' => $vendor->created_at ?? now(),
+                    ]);
+                }
+            } else {
+                if ($obLedger) {
+                    $obLedger->delete();
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error("Vendor syncOpeningBalance Error: " . $e->getMessage());
+        }
     }
 
     // Soft delete vendor and related ledger entry

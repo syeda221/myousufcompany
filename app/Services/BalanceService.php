@@ -166,6 +166,11 @@ class BalanceService
      */
     public function getVendorBalance(int $vendorId): float
     {
+        $vendor = \App\Models\Vendor::find($vendorId);
+        if ($vendor) {
+            $this->ensureVendorOpeningBalance($vendor);
+        }
+
         $apId = $this->getAccountsPayableId();
         
         $balance = JournalEntry::where('party_type', \App\Models\Vendor::class)
@@ -178,10 +183,72 @@ class BalanceService
     }
 
     /**
+     * Ensure Opening Balance Journal Entry and VendorLedger exist if vendor has opening_balance > 0.
+     */
+    public function ensureVendorOpeningBalance(\App\Models\Vendor $vendor): void
+    {
+        $opening = (float) ($vendor->opening_balance ?? 0);
+        if ($opening <= 0) {
+            return;
+        }
+
+        $hasObJournal = JournalEntry::where(function ($q) use ($vendor) {
+            $q->where('source_type', \App\Models\Vendor::class)->where('source_id', $vendor->id)
+              ->orWhere(function ($sq) use ($vendor) {
+                  $sq->where('party_type', \App\Models\Vendor::class)->where('party_id', $vendor->id);
+              });
+        })
+        ->where(function ($q) {
+            $q->where('description', 'Opening Balance')
+              ->orWhere('description', 'LIKE', 'Opening Balance%');
+        })
+        ->exists();
+
+        if (! $hasObJournal) {
+            try {
+                $journalService = app(JournalEntryService::class);
+                $apId = $this->getAccountsPayableId();
+                $entryDate = $vendor->created_at ? $vendor->created_at->format('Y-m-d') : now()->format('Y-m-d');
+
+                $journalService->recordEntry(
+                    $vendor,
+                    $apId,
+                    0,
+                    $opening,
+                    'Opening Balance',
+                    $entryDate,
+                    $vendor
+                );
+
+                \App\Models\VendorLedger::firstOrCreate(
+                    [
+                        'vendor_id' => $vendor->id,
+                        'previous_balance' => 0,
+                        'opening_balance' => $opening,
+                    ],
+                    [
+                        'admin_or_user_id' => auth()->id() ?? 1,
+                        'closing_balance' => $opening,
+                        'description' => 'Opening Balance',
+                        'created_at' => $vendor->created_at ?? now(),
+                    ]
+                );
+            } catch (\Exception $e) {
+                \Log::error('ensureVendorOpeningBalance error: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
      * Get vendor balance before a specific date
      */
     public function getVendorBalanceBeforeDate(int $vendorId, string $date): float
     {
+        $vendor = \App\Models\Vendor::find($vendorId);
+        if ($vendor) {
+            $this->ensureVendorOpeningBalance($vendor);
+        }
+
         $apId = $this->getAccountsPayableId();
 
         $balance = JournalEntry::where('party_type', \App\Models\Vendor::class)
