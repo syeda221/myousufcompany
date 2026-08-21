@@ -283,6 +283,61 @@
             -moz-appearance: textfield; 
             appearance: textfield;
         }
+        /* Select2 Custom Styling for Expense Voucher */
+        .excel-table .select2-container {
+            width: 100% !important;
+            flex-grow: 1;
+        }
+        .excel-table .select2-container--default .select2-selection--single {
+            height: 30px !important;
+            border: 1px solid var(--excel-border) !important;
+            border-radius: 4px !important;
+            background-color: #ffffff !important;
+            padding: 1px 6px !important;
+            display: flex;
+            align-items: center;
+        }
+        .excel-table .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 26px !important;
+            color: #0f172a !important;
+            font-size: 0.83rem !important;
+            padding-left: 0 !important;
+            font-weight: 500;
+        }
+        .excel-table .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 28px !important;
+            right: 4px !important;
+        }
+        .excel-table .select2-container--default.select2-container--focus .select2-selection--single,
+        .excel-table .select2-container--default.select2-container--open .select2-selection--single {
+            border-color: var(--excel-focus) !important;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
+        }
+
+        /* Header select2 styles */
+        .select2-container--default .select2-selection--single {
+            border: 1px solid var(--excel-border) !important;
+            border-radius: 4px !important;
+            height: 32px !important;
+            padding: 2px 8px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 26px !important;
+            color: #0f172a !important;
+            font-size: 0.83rem !important;
+        }
+        .select2-dropdown {
+            border: 1px solid var(--excel-border) !important;
+            border-radius: 6px !important;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+            z-index: 99999 !important;
+        }
+        .select2-search--dropdown .select2-search__field {
+            border: 1px solid var(--excel-border) !important;
+            border-radius: 4px !important;
+            padding: 4px 8px !important;
+            font-size: 0.82rem !important;
+        }
     </style>
 
     <div class="main-content">
@@ -350,7 +405,7 @@
                             <div class="col-12 col-md-3 col-lg-3">
                                 <label class="ex-label">Account / Paid From</label>
                                 <select name="vendor_id" class="ex-input" id="partyId" required>
-                                    <option disabled selected>Select Account</option>
+                                    <option value="" disabled selected>Select Account</option>
                                 </select>
                             </div>
                         </div>
@@ -385,8 +440,8 @@
                                     <thead>
                                         <tr>
                                             <th style="width: 40px;" class="text-center">#</th>
-                                            <th style="width: 32%;">Expense Category</th>
-                                            <th style="width: 44%;">Remarks / Description</th>
+                                            <th style="width: 35%;">Expense Category</th>
+                                            <th style="width: 41%;">Remarks / Description</th>
                                             <th style="width: 18%;" class="text-end">Amount (PKR)</th>
                                             <th style="width: 45px;" class="text-center">Del</th>
                                         </tr>
@@ -504,6 +559,20 @@
     <script>
         $(document).ready(function() {
 
+            // Helper to initialize Select2 on category dropdowns
+            function initCategorySelect2($elem) {
+                $elem.select2({
+                    placeholder: "-- Select Category --",
+                    allowClear: true,
+                    width: 'resolve'
+                });
+            }
+
+            // Initialize Select2 on page load
+            $('#partyType').select2({ placeholder: "Select Source Head", allowClear: true, width: '100%' });
+            $('#partyId').select2({ placeholder: "Select Account", allowClear: true, width: '100%' });
+            initCategorySelect2($('.rowAccountCategory'));
+
             // Header Party Type Selection
             $('#partyType').on('change', function() {
                 let type = $(this).val();
@@ -512,28 +581,32 @@
 
             function loadPartyList(type) {
                 let $select = $('#partyId');
-                $select.html('<option disabled selected>Loading accounts...</option>');
+                $select.html('<option value="">Loading accounts...</option>').trigger('change');
                 $('#tel').val('');
                 updateBalance(0);
 
                 if (type === 'vendor' || type === 'customer') {
                     $.get('{{ route("party.list") }}?type=' + type, function(data) {
-                        $select.empty().append('<option disabled selected>Select Party</option>');
+                        $select.empty().append('<option value="" disabled selected>Select Party</option>');
                         data.forEach(function(item) {
                             $select.append(
                                 `<option value="${item.id}" data-phone="${item.mobile || ''}" data-bal="${item.closing_balance}">${item.text}</option>`
                             );
                         });
+                        $select.val('').trigger('change');
                     });
                 } else if (type) {
                     $.get('{{ url("get-accounts-by-head") }}/' + type, function(data) {
-                        $select.empty().append('<option disabled selected>Select Account</option>');
+                        $select.empty().append('<option value="" disabled selected>Select Account</option>');
                         data.forEach(function(acc) {
                             $select.append(
                                 `<option value="${acc.id}" data-code="${acc.account_code}" data-bal="${acc.current_balance || acc.opening_balance || 0}">${acc.title}</option>`
                             );
                         });
+                        $select.val('').trigger('change');
                     });
+                } else {
+                    $select.empty().append('<option value="" disabled selected>Select Account</option>').trigger('change');
                 }
             }
 
@@ -546,7 +619,7 @@
 
                 // Auto-set global remarks
                 let partyName = $opt.text().trim();
-                if (!$('#remarks').val()) {
+                if (!$('#remarks').val() && partyName && partyName !== 'Select Account') {
                     $('#remarks').val('Expense paid through ' + partyName);
                 }
             });
@@ -600,7 +673,7 @@
             // Add Row
             $('#addNewRow').on('click', function() {
                 let optionsHtml = $('.rowAccountCategory').first().html();
-                let newRow = `
+                let $newRow = $(`
                 <tr>
                     <td class="row-number">1</td>
                     <td>
@@ -624,11 +697,12 @@
                         <button type="button" class="btn-mini-del removeRow" title="Delete Row"><i class="bi bi-trash"></i></button>
                     </td>
                 </tr>
-            `;
-                $('#voucherTable tbody').append(newRow);
-                $('#voucherTable tbody tr:last-child .rowAccountCategory').val('');
+                `);
+                $('#voucherTable tbody').append($newRow);
+                let $catSelect = $newRow.find('.rowAccountCategory');
+                $catSelect.val('');
+                initCategorySelect2($catSelect);
                 updateRowIndices();
-                $('#voucherTable tbody tr:last-child .rowAccountCategory').focus();
             });
 
             // Remove Row
@@ -666,9 +740,9 @@
                             $('#newExpenseCategoryForm')[0].reset();
                             
                             let newCat = response.category;
-                            let newOptionHtml = `<option value="${newCat.id}">${newCat.name}</option>`;
+                            let newOption = new Option(newCat.name, newCat.id, false, false);
                             $('.rowAccountCategory').each(function() {
-                                $(this).append(newOptionHtml);
+                                $(this).append(newOption.cloneNode(true));
                                 if (!$(this).val()) {
                                     $(this).val(newCat.id).trigger('change');
                                 }
