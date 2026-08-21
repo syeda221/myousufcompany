@@ -511,7 +511,7 @@
             </div>
             @if($sale->change > 0)
             <div class="tot-row">
-                <span>Change:</span>
+                <span>Change{{ $sale->change_account ? ' ('.$sale->change_account->title.')' : '' }}:</span>
                 <span>{{ number_format($sale->change, 0) }}</span>
             </div>
             @endif

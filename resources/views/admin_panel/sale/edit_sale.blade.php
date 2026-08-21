@@ -996,6 +996,16 @@
                                     <span class="fw-bold text-uppercase text-secondary" style="font-size:0.78rem;">Change:</span>
                                     <span id="walkinChange" class="fw-bold text-warning mb-0" style="font-size:1.1rem; line-height:1;">0.00</span>
                                 </div>
+
+                                <!-- Change Account -->
+                                <div class="align-items-center gap-1 px-2 flex-shrink-0" id="editChangeAccountContainer" style="display: none;">
+                                    <span class="fw-bold text-danger" style="font-size:0.78rem;">Change A/C:</span>
+                                    <select class="form-select form-select-sm bg-light fw-bold text-danger border-danger" name="change_account_id" id="editChangeAccountId" style="width: 140px; font-size:0.75rem; height: 26px; padding: 1px 4px;">
+                                        @foreach ($accounts as $acc)
+                                            <option value="{{ $acc->id }}" {{ (isset($sale) && $sale->change_account_id == $acc->id) ? 'selected' : (str_contains(strtolower($acc->title), 'cash') ? 'selected' : '') }}>{{ $acc->title }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
 
                             <!-- Customer View -->

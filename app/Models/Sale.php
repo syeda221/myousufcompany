@@ -9,13 +9,18 @@ class Sale extends Model
 {
     protected $fillable = [
         'customer_id', 'reference', 'total_amount_Words', 'total_bill_amount',
-        'total_extradiscount', 'total_net', 'cash', 'card', 'change',
+        'total_extradiscount', 'total_net', 'cash', 'card', 'change', 'change_account_id',
         'total_items', 'discount_type', 'sale_status', 'invoice_no', 'is_booking'
     ];
 
     public function customer_relation()
     {
         return $this->belongsTo(Customer::class, 'customer_id', 'id');
+    }
+
+    public function change_account()
+    {
+        return $this->belongsTo(Account::class, 'change_account_id', 'id');
     }
 
     public function product_relation()

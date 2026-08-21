@@ -501,10 +501,15 @@
         $('#walkinChange').text(changeStr);
         $('#bottomChangeVal').text(changeStr);
         $('#backendChange').val(change > 0 ? change.toFixed(2) : 0);
-        if (change >= 0) {
+        if (change > 0) {
             $('#walkinChange, #bottomChangeVal').removeClass('text-warning text-danger').addClass('text-success');
+            $('#changeAccountRow, #bottomChangeAccountWrapper, #editChangeAccountContainer').show().css('display', 'flex');
+        } else if (change === 0) {
+            $('#walkinChange, #bottomChangeVal').removeClass('text-warning text-danger').addClass('text-success');
+            $('#changeAccountRow, #bottomChangeAccountWrapper, #editChangeAccountContainer').hide();
         } else {
             $('#walkinChange, #bottomChangeVal').removeClass('text-success text-warning').addClass('text-danger');
+            $('#changeAccountRow, #bottomChangeAccountWrapper, #editChangeAccountContainer').hide();
         }
 
         $('#subTotal1').val(tGross.toFixed(2));
@@ -1391,7 +1396,20 @@
             $(this).closest('.rv-row').remove();
             if (typeof window.recomputeReceipts === 'function') window.recomputeReceipts();
         });
-        // });
+
+        // Sync Change Account Dropdowns
+        $(document).on('change', '#changeAccountId', function() {
+            const val = $(this).val();
+            $('#bottomChangeAccountId, #editChangeAccountId').val(val);
+        });
+        $(document).on('change', '#bottomChangeAccountId', function() {
+            const val = $(this).val();
+            $('#changeAccountId, #editChangeAccountId').val(val);
+        });
+        $(document).on('change', '#editChangeAccountId', function() {
+            const val = $(this).val();
+            $('#changeAccountId, #bottomChangeAccountId').val(val);
+        });
 
 
         // --- Customers & Accounts ---

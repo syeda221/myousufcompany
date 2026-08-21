@@ -1344,6 +1344,7 @@ class SaleController extends Controller
 
             $sale->cash = $request->cash ?? 0;
             $sale->change = ($sale->cash - $sale->total_net);
+            $sale->change_account_id = $request->input('change_account_id') ?: null;
 
             if ($isWalkin && $sale->change < -0.05) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
@@ -1642,7 +1643,8 @@ class SaleController extends Controller
                     $transactionService->createReceiptFromSale(
                         $sale,
                         $request->input('receipt_account_id', []),
-                        $request->input('receipt_amount', [])
+                        $request->input('receipt_amount', []),
+                        $sale->change_account_id
                     );
 
                     // --- AUTO REFUND (ENTRY 3: IF NET PAYABLE IS NEGATIVE) ---

@@ -22,7 +22,7 @@ class TransactionService
      * Create a Receipt Voucher from a Posted Sale using V2 standard.
      * Supports split payments (multiple accounts).
      */
-    public function createReceiptFromSale(Sale $sale, array $accountIds = [], array $amounts = [])
+    public function createReceiptFromSale(Sale $sale, array $accountIds = [], array $amounts = [], $changeAccountId = null)
     {
         \Log::info("TransactionService V2: Called for Sale ID {$sale->id}");
 
@@ -57,68 +57,60 @@ class TransactionService
         try {
             $balanceService = app(\App\Services\BalanceService::class);
             $customerControlAccountId = $balanceService->getAccountsReceivableId();
-            $totalPaid = 0;
+            $totalReceived = 0;
             $lines = [];
 
-            // Adjust for change returned to walk-in customer (so only net cash received is logged in cashbook)
-            $changeToDeduct = 0;
-            if (empty($sale->customer_id) && $sale->change > 0) {
-                $changeToDeduct = (float) $sale->change;
-            }
-
-            // 2. Prepare Debit Lines (Money In)
+            // 2. Prepare Debit Lines (Money In - accounts customer paid into)
             foreach ($accountIds as $index => $accId) {
                 $amount = (float) ($amounts[$index] ?? 0);
-
                 if ($amount > 0) {
-                    if ($changeToDeduct > 0 && $accId == $balanceService->getCashAccountId()) {
-                        $deduct = min($amount, $changeToDeduct);
-                        $amount -= $deduct;
-                        $changeToDeduct -= $deduct;
-                    }
+                    $totalReceived += $amount;
 
-                    if ($amount > 0) {
-                        $totalPaid += $amount;
-
-                        $lines[] = [
-                            'account_id' => $accId,
-                            'debit' => $amount,
-                            'credit' => 0,
-                            'narration' => "Payment received from Invoice #{$sale->invoice_no}",
-                        ];
-                    }
+                    $lines[] = [
+                        'account_id' => $accId,
+                        'debit' => $amount,
+                        'credit' => 0,
+                        'narration' => "Payment received from Invoice #{$sale->invoice_no}",
+                    ];
                 }
             }
 
-            // Fallback: If cash account was not in list or had insufficient amount, deduct remaining change from the first line
-            if ($changeToDeduct > 0 && count($lines) > 0) {
-                $deduct = min($lines[0]['debit'], $changeToDeduct);
-                $lines[0]['debit'] -= $deduct;
-                $totalPaid -= $deduct;
-            }
-
-            // Clean up lines with zero or negative debit
-            $lines = array_values(array_filter($lines, function($line) {
-                return $line['debit'] > 0;
-            }));
-
-            // Skip if no payment (Credit Sale - customer will pay later)
-            if ($totalPaid <= 0) {
-                \Log::info('TransactionService: No payment received (Credit Sale) after change deduction, skipping receipt voucher.');
+            if ($totalReceived <= 0) {
+                \Log::info('TransactionService: Total received amount is 0, skipping receipt voucher.');
 
                 return;
             }
 
-            // 3. Prepare Credit Line (Customer Control - Money Out / Receivable Reduced or Sales Revenue for Walkin)
-            $creditAccountId = $sale->customer_id ? $customerControlAccountId : $balanceService->getSalesRevenueId();
-            $lines[] = [
-                'account_id' => $creditAccountId,
-                'debit' => 0,
-                'credit' => $totalPaid,
-                'narration' => "Payment for Invoice #{$sale->invoice_no}",
-            ];
+            // 3. Handle Change Given (Money Out from chosen change account)
+            $changeAmount = 0;
+            if ($sale->change > 0) {
+                $changeAmount = (float) $sale->change;
+            }
 
-            // 4. Voucher Header
+            if ($changeAmount > 0) {
+                $actualChangeAccId = $changeAccountId ?: ($sale->change_account_id ?: $balanceService->getCashAccountId());
+                
+                $lines[] = [
+                    'account_id' => $actualChangeAccId,
+                    'debit' => 0,
+                    'credit' => $changeAmount,
+                    'narration' => "Change returned to customer for Invoice #{$sale->invoice_no}",
+                ];
+            }
+
+            // 4. Net settlement applied to invoice / customer receivable
+            $netPaid = $totalReceived - $changeAmount;
+            if ($netPaid > 0) {
+                $creditAccountId = $sale->customer_id ? $customerControlAccountId : $balanceService->getSalesRevenueId();
+                $lines[] = [
+                    'account_id' => $creditAccountId,
+                    'debit' => 0,
+                    'credit' => $netPaid,
+                    'narration' => "Payment for Invoice #{$sale->invoice_no}",
+                ];
+            }
+
+            // 5. Voucher Header
             $voucherData = [
                 'voucher_type' => VoucherMaster::TYPE_RECEIPT,
                 'date' => now()->format('Y-m-d'),
@@ -126,37 +118,33 @@ class TransactionService
                 'payment_from' => $sale->customer_id ? 'Customer' : 'Walk-in',
                 'party_type' => $sale->customer_id ? Customer::class : null,
                 'party_id' => $sale->customer_id,
-                'remarks' => "Auto-Receipt for Sale Invoice #{$sale->invoice_no}. Total: $totalPaid",
+                'remarks' => "Auto-Receipt for Sale Invoice #{$sale->invoice_no}. Received: $totalReceived" . ($changeAmount > 0 ? " (Change: $changeAmount)" : ""),
             ];
 
-            // 5. Create via VoucherService
+            // 6. Create via VoucherService
             $voucher = $this->voucherService->createVoucher($voucherData, $lines, auth()->id());
 
-            // 6. SYNC TO LEGACY CUSTOMER LEDGER (Critical for "Customer Balance" view)
+            // 7. SYNC TO LEGACY CUSTOMER LEDGER (Critical for "Customer Balance" view)
             if ($sale->customer_id) {
-                // Fetch latest ledger to get current balance
-                // Try-catch to ensure consistency
                 $lastEntry = \App\Models\CustomerLedger::where('customer_id', $sale->customer_id)
-                    ->lockForUpdate() // Lock to prevent race conditions
+                    ->lockForUpdate()
                     ->orderBy('id', 'desc')
                     ->first();
 
                 $prevBal = $lastEntry ? $lastEntry->closing_balance : 0;
-                // Receipt reduces balance (Credit Customer)
-                $newBal = $prevBal - $totalPaid;
+                $newBal = $prevBal - $netPaid;
 
-                \Log::info("Legacy Ledger (Receipt): Customer #{$sale->customer_id}. Prev (Expected 9440 range): {$prevBal} - Paid: {$totalPaid} = New: {$newBal}");
+                \Log::info("Legacy Ledger (Receipt): Customer #{$sale->customer_id}. Prev: {$prevBal} - Paid: {$netPaid} = New: {$newBal}");
 
                 \App\Models\CustomerLedger::create([
                     'customer_id' => $sale->customer_id,
                     'admin_or_user_id' => auth()->id() ?? 1,
                     'description' => "Receipt #{$voucher->voucher_no} for Invoice #{$sale->invoice_no}",
-                    'previous_balance' => $prevBal, // Before payment
-                    'closing_balance' => $newBal,   // After payment
+                    'previous_balance' => $prevBal,
+                    'closing_balance' => $newBal,
                     'opening_balance' => 0,
                 ]);
 
-                // Update Master Customer Table
                 $cust = \App\Models\Customer::find($sale->customer_id);
                 if ($cust) {
                     $cust->previous_balance = $newBal;
@@ -164,7 +152,7 @@ class TransactionService
                 }
             }
 
-            \Log::info("TransactionService: V2 Receipt Created: {$voucher->voucher_no} for amount $totalPaid");
+            \Log::info("TransactionService: V2 Receipt Created: {$voucher->voucher_no} for net amount $netPaid (Received: $totalReceived, Change: $changeAmount)");
 
             return $voucher->voucher_no;
 

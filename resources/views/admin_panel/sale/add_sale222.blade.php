@@ -807,6 +807,14 @@
                                     <span class="fw-bold text-danger">Change</span>
                                     <span class="summary-val-change" id="walkinChange">-0.00</span>
                                 </div>
+                                <div class="summary-row pt-2 align-items-center" id="changeAccountRow" style="display: none; border-top: 1px dashed #f1aeb5; background: #fff5f5; padding: 4px 6px; border-radius: 4px;">
+                                    <span class="text-danger fw-bold" style="font-size:0.76rem;"><i class="fas fa-hand-holding-usd me-1"></i>Change A/C</span>
+                                    <select class="form-select form-select-sm bg-white fw-bold text-danger border-danger" name="change_account_id" id="changeAccountId" style="width: 140px; font-size:0.75rem; height: 28px; padding: 2px 6px;">
+                                        @foreach ($accounts as $acc)
+                                            <option value="{{ $acc->id }}" {{ str_contains(strtolower($acc->title), 'cash') ? 'selected' : '' }}>{{ $acc->title }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
 
                             <!-- Payment Methods Card -->
@@ -858,6 +866,15 @@
                     <div class="d-flex align-items-center gap-2">
                         <span class="text-muted fw-semibold" style="font-size:0.8rem;">Change</span>
                         <span class="fs-6 fw-bold text-danger" id="bottomChangeVal">-0.00</span>
+                    </div>
+
+                    <div class="align-items-center gap-1" id="bottomChangeAccountWrapper" style="display: none;">
+                        <span class="text-danger fw-bold" style="font-size:0.76rem;">Change A/C:</span>
+                        <select class="form-select form-select-sm bg-light fw-bold text-danger border-danger" id="bottomChangeAccountId" style="width: 135px; font-size:0.75rem; height: 28px; padding: 2px 6px;">
+                            @foreach ($accounts as $acc)
+                                <option value="{{ $acc->id }}" {{ str_contains(strtolower($acc->title), 'cash') ? 'selected' : '' }}>{{ $acc->title }}</option>
+                            @endforeach
+                        </select>
                     </div>
 
                     <button type="button" class="btn btn-save-complete" id="btnSaveAndComplete2">

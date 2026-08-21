@@ -772,6 +772,12 @@
                             <td>Paid</td>
                             <td class="text-end text-success">{{ number_format($paidAmount, 2) }}</td>
                         </tr>
+                        @if ($sale->change > 0)
+                            <tr>
+                                <td>Change{{ $sale->change_account ? ' ('.$sale->change_account->title.')' : '' }}</td>
+                                <td class="text-end text-danger">{{ number_format($sale->change, 2) }}</td>
+                            </tr>
+                        @endif
                         @php
                             $finalBal = $previousBalance + $finalPayable - $paidAmount;
                         @endphp
@@ -1035,7 +1041,7 @@
             </div>
             @if($sale->change > 0)
             <div class="tot-row">
-                <span>Change:</span>
+                <span>Change{{ $sale->change_account ? ' ('.$sale->change_account->title.')' : '' }}:</span>
                 <span>{{ number_format($sale->change, 0) }}</span>
             </div>
             @endif
