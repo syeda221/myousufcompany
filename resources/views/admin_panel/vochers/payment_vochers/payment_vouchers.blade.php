@@ -186,6 +186,42 @@
             -moz-appearance: textfield; 
             appearance: textfield;
         }
+        /* Select2 PV Custom Styling */
+        .select2-container--default .select2-selection--single {
+            background-color: #fff !important;
+            border: 1px solid var(--pv-border) !important;
+            border-radius: 8px !important;
+            height: 38px !important;
+            padding: 4px 8px !important;
+            font-size: 0.9rem !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 28px !important;
+            color: var(--pv-text) !important;
+            padding-left: 2px !important;
+            font-weight: 500;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px !important;
+            right: 8px !important;
+        }
+        .select2-container--default.select2-container--focus .select2-selection--single,
+        .select2-container--default.select2-container--open .select2-selection--single {
+            border-color: var(--pv-primary) !important;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+        }
+        .select2-dropdown {
+            border: 1px solid var(--pv-border) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+            z-index: 99999 !important;
+        }
+        .select2-search--dropdown .select2-search__field {
+            border: 1px solid var(--pv-border) !important;
+            border-radius: 6px !important;
+            padding: 6px 10px !important;
+            font-size: 0.85rem !important;
+        }
     </style>
 
     <div class="main-content">
@@ -257,7 +293,7 @@
                             <div class="col-md-4">
                                 <label class="pv-label">Account (Cash / Bank)</label>
                                 <select name="header_account_id" class="pv-input" id="payFromAccount">
-                                    <option disabled selected>Select Account</option>
+                                    <option value="" disabled selected>Select Account</option>
                                 </select>
                             </div>
                             <div class="col-md-2">
@@ -286,7 +322,7 @@
                                     <tr>
                                         <td>
                                             <select name="vendor_type[]" class="pv-input rowType">
-                                                <option disabled selected>Select</option>
+                                                <option value="" disabled selected>Select Type</option>
                                                 <option value="vendor">Vendor</option>
                                                 <option value="customer">Customer</option>
                                                 <option value="walkin">Walk-in</option>
@@ -297,7 +333,7 @@
                                         </td>
                                         <td>
                                             <select name="vendor_id[]" class="pv-input rowParty">
-                                                <option disabled selected>Select Party</option>
+                                                <option value="" disabled selected>Select Party</option>
                                             </select>
                                         </td>
                                         <td>
@@ -349,29 +385,55 @@
     <script>
         $(document).ready(function() {
 
+            // Initialize Select2 helper
+            function initPartySelect2($element) {
+                $element.select2({
+                    placeholder: "Select Party",
+                    allowClear: true,
+                    width: '100%'
+                });
+            }
+
+            function initTypeSelect2($element) {
+                $element.select2({
+                    placeholder: "Select Type",
+                    allowClear: true,
+                    width: '100%'
+                });
+            }
+
+            // Initial Select2 on page load
+            $('#payFromHead').select2({ placeholder: "Select Head", allowClear: true, width: '100%' });
+            $('#payFromAccount').select2({ placeholder: "Select Account", allowClear: true, width: '100%' });
+            initTypeSelect2($('.rowType'));
+            initPartySelect2($('.rowParty'));
+
             // Header Source Account Logic
             $('#payFromHead').on('change', function() {
                 let headId = $(this).val();
                 let $accSelect = $('#payFromAccount');
-                $accSelect.html('<option disabled selected>Loading...</option>');
+                $accSelect.html('<option value="">Loading...</option>').trigger('change');
                 $('#accountCode').val('');
                 updateSourceBalance(0);
 
                 if (headId) {
                     $.get('{{ url("get-accounts-by-head") }}/' + headId, function(data) {
-                        $accSelect.empty().append('<option disabled selected>Select Account</option>');
+                        $accSelect.empty().append('<option value="" disabled selected>Select Account</option>');
                         data.forEach(function(acc) {
                             $accSelect.append(
                                 `<option value="${acc.id}" data-code="${acc.account_code || ''}" data-bal="${acc.current_balance || 0}">${acc.title}</option>`
                             );
                         });
+                        $accSelect.val('').trigger('change');
                     });
+                } else {
+                    $accSelect.empty().append('<option value="" disabled selected>Select Account</option>').trigger('change');
                 }
             });
 
             $('#payFromAccount').on('change', function() {
                 let $opt = $(this).find(':selected');
-                $('#accountCode').val($opt.data('code'));
+                $('#accountCode').val($opt.data('code') || '');
                 let bal = parseFloat($opt.data('bal')) || 0;
                 updateSourceBalance(bal);
             });
@@ -394,26 +456,30 @@
                 let $row = $(this).closest('tr');
                 let $select = $row.find('.rowParty');
 
-                $select.html('<option disabled selected>Loading...</option>');
+                $select.html('<option value="">Loading...</option>').trigger('change');
 
                 if (type === 'vendor' || type === 'customer' || type === 'walkin') {
                     $.get('{{ route("party.list") }}?type=' + type, function(data) {
-                        $select.empty().append('<option disabled selected>Select Party</option>');
+                        $select.empty().append('<option value="" disabled selected>Select Party</option>');
                         data.forEach(function(item) {
                             $select.append(
                                 `<option value="${item.id}">${item.text}</option>`
                             );
                         });
+                        $select.val('').trigger('change');
                     });
                 } else if (type) {
                     $.get('{{ url("get-accounts-by-head") }}/' + type, function(data) {
-                        $select.empty().append('<option disabled selected>Select Account</option>');
+                        $select.empty().append('<option value="" disabled selected>Select Account</option>');
                         data.forEach(function(acc) {
                             $select.append(
                                 `<option value="${acc.id}">${acc.title}</option>`
                             );
                         });
+                        $select.val('').trigger('change');
                     });
+                } else {
+                    $select.empty().append('<option value="" disabled selected>Select Party</option>').trigger('change');
                 }
             });
 
@@ -442,33 +508,36 @@
 
             // Add Row
             $('#addNewRow').on('click', function() {
-                let newRow = `
-                <tr>
-                    <td>
-                        <select name="vendor_type[]" class="pv-input rowType">
-                            <option disabled selected>Select</option>
-                            <option value="vendor">Vendor</option>
-                            <option value="customer">Customer</option>
-                            <option value="walkin">Walk-in</option>
-                            @foreach ($AccountHeads as $head)
-                                <option value="{{ $head->id }}">{{ $head->name }}</option>
-                            @endforeach
-                        </select>
-                    </td>
-                    <td>
-                        <select name="vendor_id[]" class="pv-input rowParty">
-                            <option disabled selected>Select Party</option>
-                        </select>
-                    </td>
-                    <td>
-                        <input type="number" name="amount[]" class="pv-input text-end fw-bold amount" placeholder="0.00" style="font-size: 1rem;">
-                    </td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-outline-danger btn-sm removeRow"><i class="bi bi-trash"></i></button>
-                    </td>
-                </tr>
-            `;
-                $('#voucherTable tbody').append(newRow);
+                let $newRow = $(`
+                    <tr>
+                        <td>
+                            <select name="vendor_type[]" class="pv-input rowType">
+                                <option value="" disabled selected>Select Type</option>
+                                <option value="vendor">Vendor</option>
+                                <option value="customer">Customer</option>
+                                <option value="walkin">Walk-in</option>
+                                @foreach ($AccountHeads as $head)
+                                    <option value="{{ $head->id }}">{{ $head->name }}</option>
+                                @endforeach
+                            </select>
+                        </td>
+                        <td>
+                            <select name="vendor_id[]" class="pv-input rowParty">
+                                <option value="" disabled selected>Select Party</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="number" name="amount[]" class="pv-input text-end fw-bold amount" placeholder="0.00" style="font-size: 1rem;">
+                        </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-outline-danger btn-sm removeRow"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>
+                `);
+
+                $('#voucherTable tbody').append($newRow);
+                initTypeSelect2($newRow.find('.rowType'));
+                initPartySelect2($newRow.find('.rowParty'));
             });
 
             $(document).on('click', '.removeRow', function() {
