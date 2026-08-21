@@ -576,7 +576,8 @@
 
                 <!-- TOP INFORMATION PANEL -->
                 <div class="top-info-card mb-3">
-                    <div class="row g-2 align-items-end w-100 m-0">
+                    <!-- Row 1: Core Transaction Meta -->
+                    <div class="row g-2 align-items-end w-100 m-0 pb-2 mb-2 border-bottom" style="border-color: #e2e8f0 !important;">
                         <!-- Invoice No with Prefix Dropdown & Refresh -->
                         <div class="col-sm-6 col-md-3 col-lg-2">
                             <label class="meta-label"><i class="fas fa-receipt text-primary"></i> Invoice No.</label>
@@ -625,25 +626,13 @@
                         </div>
 
                         <!-- Date -->
-                        <div class="col-sm-6 col-md-2 col-lg-2">
+                        <div class="col-sm-6 col-md-3 col-lg-2">
                             <label class="meta-label"><i class="far fa-calendar-alt text-primary"></i> Date</label>
                             <input type="text" name="sale_date" class="form-control datepicker-custom text-center fw-bold" id="displayDateInput" value="{{ date('Y-m-d') }}">
                         </div>
 
-                        <!-- Cr. Days -->
-                        <div class="col-sm-6 col-md-1 col-lg-1">
-                            <label class="meta-label"><i class="fas fa-clock text-muted"></i> Cr. Days</label>
-                            <input type="number" class="form-control text-center fw-bold" name="credit_days" placeholder="0" min="0" value="{{ $sale->credit_days ?? '0' }}">
-                        </div>
-
-                        <!-- Remarks -->
-                        <div class="col-sm-6 col-md-2 col-lg-2">
-                            <label class="meta-label"><i class="far fa-comment-dots text-muted"></i> Remarks</label>
-                            <input type="text" class="form-control" name="reference" id="remarks" placeholder="Notes / Ref...">
-                        </div>
-
                         <!-- Customer Type -->
-                        <div class="col-sm-6 col-md-2 col-lg-2" id="customerTypeCol">
+                        <div class="col-sm-6 col-md-3 col-lg-2" id="customerTypeCol">
                             <label class="meta-label"><i class="fas fa-user-tag text-primary"></i> Customer Type</label>
                             <select class="form-select fw-bold" id="partyTypeSelect" name="partyType">
                                 @foreach(\App\Models\CustomerType::orderBy('name')->get() as $type)
@@ -653,7 +642,7 @@
                         </div>
 
                         <!-- Customer & Walk-in Toggle -->
-                        <div class="col-sm-6 col-md-2 col-lg-2">
+                        <div class="col-sm-6 col-md-3 col-lg-4">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <label class="meta-label mb-0"><i class="fas fa-user text-primary"></i> Customer</label>
                                 <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 rounded-pill fw-bold" data-bs-toggle="modal" data-bs-target="#addCustomerModal" style="font-size: 0.65rem; height: 18px; line-height: 1;">
@@ -669,11 +658,48 @@
                         </div>
 
                         <!-- Save Sale Button -->
-                        <div class="col-sm-12 col-md-12 col-lg-1 d-flex align-items-end">
+                        <div class="col-sm-12 col-md-12 col-lg-2 d-flex align-items-end">
                             <input type="hidden" name="is_walkin" id="is_walkin" value="0">
-                            <button type="button" class="btn btn-top-save w-100 fw-bold d-flex align-items-center justify-content-center gap-1" id="btnHeaderSaveSale" style="font-size: 0.75rem;">
-                                <i class="fas fa-check"></i> Save
+                            <button type="button" class="btn btn-top-save w-100 fw-bold d-flex align-items-center justify-content-center gap-1" id="btnHeaderSaveSale" style="font-size: 0.8rem;">
+                                <i class="fas fa-check"></i> Save Sale
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Sales Person, Commission, Credit Days & Remarks -->
+                    <div class="row g-2 align-items-end w-100 m-0">
+                        <!-- Sales Person (Input Field, NOT dropdown) -->
+                        <div class="col-sm-6 col-md-3 col-lg-3">
+                            <label class="meta-label"><i class="fas fa-user-tie text-primary"></i> Sales Person</label>
+                            <input type="text" class="form-control fw-semibold" name="salesman_name" id="salesmanName" placeholder="Enter Sales Person Name..." value="{{ $sale->salesman_name ?? '' }}">
+                        </div>
+
+                        <!-- Commission (with % / Rs toggle) -->
+                        <div class="col-sm-6 col-md-3 col-lg-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="meta-label mb-0"><i class="fas fa-hand-holding-usd text-success"></i> Commission</label>
+                                <span class="badge bg-light text-muted border px-1" id="commissionCalculatedBadge" style="font-size:0.68rem;">Rs. 0.00</span>
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <input type="number" step="any" min="0" class="form-control text-end fw-bold text-success" name="commission_rate" id="commissionRate" placeholder="0" value="{{ $sale->commission_rate ?? '0' }}" style="font-size: 0.82rem;">
+                                <input type="hidden" name="commission_type" id="commissionType" value="{{ $sale->commission_type ?? 'percent' }}">
+                                <input type="hidden" name="commission_amount" id="commissionAmount" value="{{ $sale->commission_amount ?? '0' }}">
+                                <button type="button" class="btn {{ (isset($sale) && $sale->commission_type === 'fixed') ? 'btn-outline-success' : 'btn-outline-primary' }} fw-bold px-2" id="btnToggleCommissionType" title="Toggle Commission Mode (% or Rs)" style="font-size:0.75rem; min-width:36px;">
+                                    {{ (isset($sale) && $sale->commission_type === 'fixed') ? 'Rs' : '%' }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Cr. Days -->
+                        <div class="col-sm-6 col-md-2 col-lg-2">
+                            <label class="meta-label"><i class="fas fa-clock text-muted"></i> Cr. Days</label>
+                            <input type="number" class="form-control text-center fw-bold" name="credit_days" placeholder="0" min="0" value="{{ $sale->credit_days ?? '0' }}">
+                        </div>
+
+                        <!-- Remarks -->
+                        <div class="col-sm-6 col-md-4 col-lg-4">
+                            <label class="meta-label"><i class="far fa-comment-dots text-muted"></i> Remarks / Reference</label>
+                            <input type="text" class="form-control" name="reference" id="remarks" placeholder="Optional notes / reference..." value="{{ $sale->reference ?? '' }}">
                         </div>
                     </div>
                 </div>
@@ -869,6 +895,14 @@
                                 <div class="summary-row pt-1">
                                     <span class="fw-bold text-dark">Change</span>
                                     <span class="summary-val-change" id="walkinChange">-0.00</span>
+                                </div>
+                                <div class="summary-row" id="salesmanSummaryRow" style="display: none;">
+                                    <span class="text-muted"><i class="fas fa-user-tie text-primary me-1"></i>Sales Person</span>
+                                    <span class="fw-bold text-dark" id="summarySalesmanName">-</span>
+                                </div>
+                                <div class="summary-row" id="commissionSummaryRow" style="display: none;">
+                                    <span class="text-muted"><i class="fas fa-hand-holding-usd text-success me-1"></i>Commission</span>
+                                    <span class="fw-bold text-success" id="summaryCommissionVal">Rs. 0.00</span>
                                 </div>
                                 <div class="summary-row pt-2 align-items-center" id="changeAccountRow" style="display: none; border-top: 1px dashed #f1aeb5; background: #fff8f8; padding: 6px 8px; border-radius: 6px;">
                                     <span class="text-danger fw-bold d-flex align-items-center gap-1" style="font-size:0.76rem;"><i class="fas fa-hand-holding-usd"></i> Change A/C</span>

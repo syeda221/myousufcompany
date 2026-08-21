@@ -673,13 +673,34 @@
                                 <select class="form-select {{ (!isset($sale) || $sale->walkin_name) ? 'd-none' : '' }}" id="customerSelect" name="customer" style="width:100%">
                                     @if (isset($sale) && $sale->customer_relation)
                                         <option value="{{ $sale->customer_id }}" selected>
-                                            {{ $sale->customer_relation->customer_id }} — {{ $sale->customer_relation->customer_name }}
+                                             {{ $sale->customer_relation->customer_name }}
                                         </option>
                                     @endif
                                 </select>
                             </div>
                         </div>
-            
+
+                        <!-- Sales Person -->
+                        <div class="col-sm-2">
+                            <label class="form-label fw-bold text-secondary mb-0" style="font-size: 0.72rem;">Sales Person:</label>
+                            <input type="text" class="form-control" name="salesman_name" id="salesmanName" placeholder="Sales Person Name" value="{{ $sale->salesman_name ?? '' }}" style="height: 26px !important; padding: 0 4px;">
+                        </div>
+
+                        <!-- Commission -->
+                        <div class="col-sm-2">
+                            <div class="d-flex justify-content-between align-items-center mb-0">
+                                <label class="form-label fw-bold text-secondary mb-0" style="font-size: 0.72rem;">Commission:</label>
+                                <span class="badge bg-light text-muted border px-1" id="commissionCalculatedBadge" style="font-size:0.62rem;">Rs. 0.00</span>
+                            </div>
+                            <div class="input-group input-group-sm" style="height: 26px;">
+                                <input type="number" step="any" min="0" class="form-control text-end fw-bold" name="commission_rate" id="commissionRate" placeholder="0" value="{{ $sale->commission_rate ?? '0' }}" style="height: 26px !important; padding: 0 4px; font-size:0.75rem;">
+                                <input type="hidden" name="commission_type" id="commissionType" value="{{ $sale->commission_type ?? 'percent' }}">
+                                <input type="hidden" name="commission_amount" id="commissionAmount" value="{{ $sale->commission_amount ?? '0' }}">
+                                <button type="button" class="btn {{ (isset($sale) && $sale->commission_type === 'fixed') ? 'btn-outline-success' : 'btn-outline-primary' }} fw-bold px-1 py-0" id="btnToggleCommissionType" title="Toggle Commission (% or Rs)" style="font-size:0.68rem; height: 26px; min-width: 28px;">
+                                    {{ (isset($sale) && $sale->commission_type === 'fixed') ? 'Rs' : '%' }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

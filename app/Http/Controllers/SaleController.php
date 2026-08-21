@@ -1346,6 +1346,16 @@ class SaleController extends Controller
             $sale->change = ($sale->cash - $sale->total_net);
             $sale->change_account_id = $request->input('change_account_id') ?: null;
 
+            // Salesman & Commission
+            $sale->salesman_name = $request->input('salesman_name') ?: null;
+            $sale->commission_type = $request->input('commission_type') ?: 'percent';
+            $sale->commission_rate = (float) ($request->input('commission_rate') ?? 0);
+            if ($sale->commission_type === 'percent') {
+                $sale->commission_amount = round(($sale->total_net * $sale->commission_rate) / 100, 2);
+            } else {
+                $sale->commission_amount = round($sale->commission_rate, 2);
+            }
+
             if ($isWalkin && $sale->change < -0.05) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'cash' => 'Walk-in customers must pay 100% upfront. Balance cannot be unpaid.'

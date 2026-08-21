@@ -562,6 +562,36 @@
         } else {
             $('#cc_closing_bal_val, #cc_closing_bal_suffix').removeClass('text-danger').addClass('text-success');
         }
+
+        // 6. Sales Person & Commission Calculation
+        const commRate = toNum($('#commissionRate').val());
+        const commType = $('#commissionType').val() || 'percent';
+        let commAmt = 0;
+
+        if (commType === 'percent') {
+            commAmt = (currentInvoiceTotal * commRate) / 100;
+            $('#commissionCalculatedBadge').text('Rs. ' + commAmt.toFixed(2));
+            $('#summaryCommissionVal').text(commRate + '% (Rs. ' + commAmt.toFixed(2) + ')');
+        } else {
+            commAmt = commRate;
+            $('#commissionCalculatedBadge').text('Rs. ' + commAmt.toFixed(2));
+            $('#summaryCommissionVal').text('Rs. ' + commAmt.toFixed(2));
+        }
+        $('#commissionAmount').val(commAmt.toFixed(2));
+
+        const smName = $('#salesmanName').val();
+        if (smName && smName.trim() !== '') {
+            $('#summarySalesmanName').text(smName);
+            $('#salesmanSummaryRow').show();
+        } else {
+            $('#salesmanSummaryRow').hide();
+        }
+
+        if (commRate > 0) {
+            $('#commissionSummaryRow').show();
+        } else {
+            $('#commissionSummaryRow').hide();
+        }
     }
 
 
@@ -1268,6 +1298,24 @@
             // Sync hidden input so form submission carries correct type
             $btn.closest('.discount-wrapper').find('.discount-type-hidden').val(newType);
             computeRow($btn.closest('tr'));
+            updateGrandTotals();
+        });
+
+        // Salesman Commission Toggle: % <-> Rs
+        $(document).on('click', '#btnToggleCommissionType', function() {
+            const $btn = $(this);
+            const currentType = $('#commissionType').val() || 'percent';
+            const newType = currentType === 'percent' ? 'fixed' : 'percent';
+            $('#commissionType').val(newType);
+            if (newType === 'fixed') {
+                $btn.text('Rs').removeClass('btn-outline-primary').addClass('btn-outline-success');
+            } else {
+                $btn.text('%').removeClass('btn-outline-success').addClass('btn-outline-primary');
+            }
+            updateGrandTotals();
+        });
+
+        $(document).on('input', '#commissionRate, #salesmanName', function() {
             updateGrandTotals();
         });
 
