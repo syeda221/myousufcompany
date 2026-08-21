@@ -565,13 +565,14 @@
 
         // 6. Sales Person & Commission Calculation
         const commRate = toNum($('#commissionRate').val());
-        const commType = $('#commissionType').val() || 'percent';
+        const commType = $('#commissionType').val() || 'fixed';
         let commAmt = 0;
 
         if (commType === 'percent') {
-            commAmt = (currentInvoiceTotal * commRate) / 100;
+            const cappedRate = Math.min(commRate, 100);
+            commAmt = (currentInvoiceTotal * cappedRate) / 100;
             $('#commissionCalculatedBadge').text('Rs. ' + commAmt.toFixed(2));
-            $('#summaryCommissionVal').text(commRate + '% (Rs. ' + commAmt.toFixed(2) + ')');
+            $('#summaryCommissionVal').text(cappedRate + '% (Rs. ' + commAmt.toFixed(2) + ')');
         } else {
             commAmt = commRate;
             $('#commissionCalculatedBadge').text('Rs. ' + commAmt.toFixed(2));
@@ -1301,16 +1302,16 @@
             updateGrandTotals();
         });
 
-        // Salesman Commission Toggle: % <-> Rs
+        // Salesman Commission Toggle: Rs <-> %
         $(document).on('click', '#btnToggleCommissionType', function() {
             const $btn = $(this);
-            const currentType = $('#commissionType').val() || 'percent';
-            const newType = currentType === 'percent' ? 'fixed' : 'percent';
+            const currentType = $('#commissionType').val() || 'fixed';
+            const newType = currentType === 'fixed' ? 'percent' : 'fixed';
             $('#commissionType').val(newType);
-            if (newType === 'fixed') {
-                $btn.text('Rs').removeClass('btn-outline-primary').addClass('btn-outline-success');
-            } else {
+            if (newType === 'percent') {
                 $btn.text('%').removeClass('btn-outline-success').addClass('btn-outline-primary');
+            } else {
+                $btn.text('Rs').removeClass('btn-outline-primary').addClass('btn-outline-success');
             }
             updateGrandTotals();
         });

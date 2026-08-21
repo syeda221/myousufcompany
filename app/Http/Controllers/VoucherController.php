@@ -1312,6 +1312,9 @@ class VoucherController extends Controller
                     ->first();
                 $typeLabel = 'Walk-in';
                 $partyName = $walkin->customer_name ?? '-';
+            } elseif ($voucher->type === 'salesman' || $voucher->type === 'commission') {
+                $typeLabel = 'Sales Person';
+                $partyName = $voucher->party_id ?: '-';
             }
 
             // 🔗 Attach extra fields for Blade

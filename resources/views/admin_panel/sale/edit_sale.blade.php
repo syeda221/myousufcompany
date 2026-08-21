@@ -694,10 +694,10 @@
                             </div>
                             <div class="input-group input-group-sm" style="height: 26px;">
                                 <input type="number" step="any" min="0" class="form-control text-end fw-bold" name="commission_rate" id="commissionRate" placeholder="0" value="{{ $sale->commission_rate ?? '0' }}" style="height: 26px !important; padding: 0 4px; font-size:0.75rem;">
-                                <input type="hidden" name="commission_type" id="commissionType" value="{{ $sale->commission_type ?? 'percent' }}">
+                                <input type="hidden" name="commission_type" id="commissionType" value="{{ $sale->commission_type ?? 'fixed' }}">
                                 <input type="hidden" name="commission_amount" id="commissionAmount" value="{{ $sale->commission_amount ?? '0' }}">
-                                <button type="button" class="btn {{ (isset($sale) && $sale->commission_type === 'fixed') ? 'btn-outline-success' : 'btn-outline-primary' }} fw-bold px-1 py-0" id="btnToggleCommissionType" title="Toggle Commission (% or Rs)" style="font-size:0.68rem; height: 26px; min-width: 28px;">
-                                    {{ (isset($sale) && $sale->commission_type === 'fixed') ? 'Rs' : '%' }}
+                                <button type="button" class="btn {{ (isset($sale) && $sale->commission_type === 'percent') ? 'btn-outline-primary' : 'btn-outline-success' }} fw-bold px-1 py-0" id="btnToggleCommissionType" title="Toggle Commission (Rs or %)" style="font-size:0.68rem; height: 26px; min-width: 28px;">
+                                    {{ (isset($sale) && $sale->commission_type === 'percent') ? '%' : 'Rs' }}
                                 </button>
                             </div>
                         </div>

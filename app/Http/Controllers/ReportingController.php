@@ -973,14 +973,16 @@ class ReportingController extends Controller
 
         // 3. Calculate Expenses
         $expenseQueryV1 = DB::table('expense_vouchers');
-        $expenseQueryV2 = DB::table('voucher_masters')->where('voucher_type', 'expense');
+        $expenseQueryV2 = DB::table('voucher_masters')
+            ->where('voucher_type', 'expense')
+            ->where('remarks', 'not like', '%Commission Payment%');
 
         if ($start && $end) {
             $expenseQueryV1->whereBetween('entry_date', [$start, $end]);
             $expenseQueryV2->whereBetween('date', [$start, $end]);
         }
 
-        $totalExpenses = $expenseQueryV1->sum('total_amount') + $expenseQueryV2->sum('total_amount');
+        $totalExpenses = (float) $expenseQueryV1->sum('total_amount') + (float) $expenseQueryV2->sum('total_amount');
 
         // 4. Top 10 Customers by Profit
         $allCustomers = DB::table('customers')->get();
@@ -1409,7 +1411,9 @@ class ReportingController extends Controller
 
             // Calculate Expenses for date range
             $expenseQueryV1 = DB::table('expense_vouchers');
-            $expenseQueryV2 = DB::table('voucher_masters')->where('voucher_type', 'expense');
+            $expenseQueryV2 = DB::table('voucher_masters')
+                ->where('voucher_type', 'expense')
+                ->where('remarks', 'not like', '%Commission Payment%');
 
             if ($start && $end) {
                 $startDt = \Carbon\Carbon::parse($start)->format('Y-m-d H:i:s');
@@ -2396,11 +2400,19 @@ class ReportingController extends Controller
 
         // Expenses
         $expensesTodayV1 = DB::table('expense_vouchers')->where('entry_date', $today)->sum('total_amount');
-        $expensesTodayV2 = DB::table('voucher_masters')->where('voucher_type', 'expense')->where('date', $today)->sum('total_amount');
+        $expensesTodayV2 = DB::table('voucher_masters')
+            ->where('voucher_type', 'expense')
+            ->where('remarks', 'not like', '%Commission Payment%')
+            ->where('date', $today)
+            ->sum('total_amount');
         $expensesToday = $expensesTodayV1 + $expensesTodayV2;
 
         $expensesMonthV1 = DB::table('expense_vouchers')->whereBetween('entry_date', [$startOfMonth, $endOfMonth])->sum('total_amount');
-        $expensesMonthV2 = DB::table('voucher_masters')->where('voucher_type', 'expense')->whereBetween('date', [$startOfMonth, $endOfMonth])->sum('total_amount');
+        $expensesMonthV2 = DB::table('voucher_masters')
+            ->where('voucher_type', 'expense')
+            ->where('remarks', 'not like', '%Commission Payment%')
+            ->whereBetween('date', [$startOfMonth, $endOfMonth])
+            ->sum('total_amount');
         $expensesMonth = $expensesMonthV1 + $expensesMonthV2;
 
         // Cash & Bank Balances

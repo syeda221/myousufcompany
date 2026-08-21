@@ -152,6 +152,64 @@ class TransactionService
                 }
             }
 
+            // 8. Auto-create Commission Expense Voucher if commission is set
+            $commAmount = (float) ($sale->commission_amount ?? 0);
+            if ($commAmount > 0) {
+                try {
+                    $commissionExpenseAccId = $balanceService->getSalesCommissionExpenseId();
+                    $cashAccId = $changeAccountId ?: ($sale->change_account_id ?: $balanceService->getCashAccountId());
+                    $salesmanTitle = !empty($sale->salesman_name) ? $sale->salesman_name : 'Sales Person';
+                    $entryDate = $sale->created_at ? $sale->created_at->format('Y-m-d') : date('Y-m-d');
+
+                    // 8a. Create ExpenseVoucher for Expense Vouchers list (/all_expense_vochers)
+                    \App\Models\ExpenseVoucher::create([
+                        'evid' => \App\Models\ExpenseVoucher::generateInvoiceNo(),
+                        'entry_date' => $entryDate,
+                        'type' => 'salesman',
+                        'party_id' => $salesmanTitle,
+                        'tel' => null,
+                        'remarks' => "Commission Payment to {$salesmanTitle} for Sale Invoice #{$sale->invoice_no}",
+                        'reference_no' => $sale->invoice_no,
+                        'narration_id' => json_encode(["Commission Payment - " . $salesmanTitle]),
+                        'row_account_head' => json_encode(["0"]),
+                        'row_account_id' => json_encode([(string) $cashAccId]),
+                        'amount' => json_encode([(string) $commAmount]),
+                        'total_amount' => $commAmount,
+                    ]);
+
+                    // 8b. Create VoucherMaster for Double-Entry Accounts & General Ledger
+                    $commLines = [
+                        [
+                            'account_id' => $commissionExpenseAccId,
+                            'debit' => $commAmount,
+                            'credit' => 0,
+                            'narration' => "Sales commission expense for {$salesmanTitle} on Invoice #{$sale->invoice_no}",
+                        ],
+                        [
+                            'account_id' => $cashAccId,
+                            'debit' => 0,
+                            'credit' => $commAmount,
+                            'narration' => "Commission cash paid to {$salesmanTitle} for Invoice #{$sale->invoice_no}",
+                        ],
+                    ];
+
+                    $commVoucherData = [
+                        'voucher_type' => VoucherMaster::TYPE_EXPENSE,
+                        'date' => $entryDate,
+                        'status' => VoucherMaster::STATUS_POSTED,
+                        'payment_from' => 'Cash',
+                        'party_type' => null,
+                        'party_id' => null,
+                        'remarks' => "Commission Payment to {$salesmanTitle} for Sale Invoice #{$sale->invoice_no} (Amount: Rs. {$commAmount})",
+                    ];
+
+                    $commVoucher = $this->voucherService->createVoucher($commVoucherData, $commLines, auth()->id());
+                    \Log::info("TransactionService: Created Commission Expense Voucher {$commVoucher->voucher_no} for Sale ID {$sale->id}, Amount: {$commAmount}");
+                } catch (\Exception $exComm) {
+                    \Log::error("TransactionService: Error creating Commission Expense Voucher: " . $exComm->getMessage());
+                }
+            }
+
             \Log::info("TransactionService: V2 Receipt Created: {$voucher->voucher_no} for net amount $netPaid (Received: $totalReceived, Change: $changeAmount)");
 
             return $voucher->voucher_no;

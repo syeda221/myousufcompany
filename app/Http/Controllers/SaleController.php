@@ -1348,12 +1348,19 @@ class SaleController extends Controller
 
             // Salesman & Commission
             $sale->salesman_name = $request->input('salesman_name') ?: null;
-            $sale->commission_type = $request->input('commission_type') ?: 'percent';
-            $sale->commission_rate = (float) ($request->input('commission_rate') ?? 0);
-            if ($sale->commission_type === 'percent') {
-                $sale->commission_amount = round(($sale->total_net * $sale->commission_rate) / 100, 2);
+            $sale->commission_type = $request->input('commission_type') ?: 'fixed';
+            $commRate = (float) ($request->input('commission_rate') ?? 0);
+            $sale->commission_rate = $commRate;
+
+            if ($commRate > 0) {
+                if ($sale->commission_type === 'percent') {
+                    $validRate = min($commRate, 100);
+                    $sale->commission_amount = round(($sale->total_net * $validRate) / 100, 2);
+                } else {
+                    $sale->commission_amount = round($commRate, 2);
+                }
             } else {
-                $sale->commission_amount = round($sale->commission_rate, 2);
+                $sale->commission_amount = 0;
             }
 
             if ($isWalkin && $sale->change < -0.05) {
@@ -2084,6 +2091,11 @@ class SaleController extends Controller
             // Delete master
             $voucher->delete();
         }
+
+        // Delete any ExpenseVoucher created for this sale's commission
+        \App\Models\ExpenseVoucher::where('reference_no', $sale->invoice_no)
+            ->orWhere('remarks', 'like', "%#{$sale->invoice_no}%")
+            ->delete();
 
         // 3. Rollback Legacy Customer Ledger & Customer Master Balance
         $ledgerEntries = \App\Models\CustomerLedger::where('customer_id', $sale->customer_id)

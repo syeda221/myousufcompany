@@ -674,7 +674,7 @@
                             <input type="text" class="form-control fw-semibold" name="salesman_name" id="salesmanName" placeholder="Enter Sales Person Name..." value="{{ $sale->salesman_name ?? '' }}">
                         </div>
 
-                        <!-- Commission (with % / Rs toggle) -->
+                        <!-- Commission (with Rs / % toggle) -->
                         <div class="col-sm-6 col-md-3 col-lg-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <label class="meta-label mb-0"><i class="fas fa-hand-holding-usd text-success"></i> Commission</label>
@@ -682,10 +682,10 @@
                             </div>
                             <div class="input-group input-group-sm">
                                 <input type="number" step="any" min="0" class="form-control text-end fw-bold text-success" name="commission_rate" id="commissionRate" placeholder="0" value="{{ $sale->commission_rate ?? '0' }}" style="font-size: 0.82rem;">
-                                <input type="hidden" name="commission_type" id="commissionType" value="{{ $sale->commission_type ?? 'percent' }}">
+                                <input type="hidden" name="commission_type" id="commissionType" value="{{ $sale->commission_type ?? 'fixed' }}">
                                 <input type="hidden" name="commission_amount" id="commissionAmount" value="{{ $sale->commission_amount ?? '0' }}">
-                                <button type="button" class="btn {{ (isset($sale) && $sale->commission_type === 'fixed') ? 'btn-outline-success' : 'btn-outline-primary' }} fw-bold px-2" id="btnToggleCommissionType" title="Toggle Commission Mode (% or Rs)" style="font-size:0.75rem; min-width:36px;">
-                                    {{ (isset($sale) && $sale->commission_type === 'fixed') ? 'Rs' : '%' }}
+                                <button type="button" class="btn {{ (isset($sale) && $sale->commission_type === 'percent') ? 'btn-outline-primary' : 'btn-outline-success' }} fw-bold px-2" id="btnToggleCommissionType" title="Toggle Commission Mode (Rs or %)" style="font-size:0.75rem; min-width:36px;">
+                                    {{ (isset($sale) && $sale->commission_type === 'percent') ? '%' : 'Rs' }}
                                 </button>
                             </div>
                         </div>

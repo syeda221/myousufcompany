@@ -699,6 +699,33 @@ class BalanceService
     }
 
     /**
+     * Get Sales Commission Expense account ID (Expense)
+     * Auto-creates if missing.
+     */
+    public function getSalesCommissionExpenseId(): int
+    {
+        $account = Account::where('title', 'like', '%Sales Commission%')
+            ->orWhere('title', 'like', '%Commission Expense%')
+            ->orWhere('account_code', 'COMMISSION_EXP')
+            ->first();
+
+        if (! $account) {
+            \Log::info("BalanceService: 'Sales Commission Expense' missing, creating it.");
+            $account = Account::create([
+                'title' => 'Sales Commission Expense',
+                'account_code' => 'COMMISSION_EXP',
+                'type' => 'Debit', // Expense is Debit nature
+                'head_id' => null,
+                'opening_balance' => 0,
+                'status' => 1,
+                'is_active' => 1,
+            ]);
+        }
+
+        return $account->id;
+    }
+
+    /**
      * Format balance with Dr/Cr indicator
      */
     public static function formatBalance(float $balance): string
