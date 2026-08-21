@@ -387,7 +387,7 @@
                         {{-- AJAX Filter Panel --}}
                         <div class="card filter-panel mb-4" id="filterPanelContainer">
                             <div class="card-body p-0">
-                                <form id="filterForm" class="row g-2 g-md-3 align-items-end" autocomplete="off">
+                                <form id="filterForm" class="row g-2 g-md-3 align-items-end" autocomplete="off" onsubmit="return false;">
                                     <div class="col-6 col-md-2">
                                         <label class="form-label mb-1">Quick Filter</label>
                                         <select id="quick_filter" class="form-select">
@@ -429,7 +429,7 @@
                                         <button type="button" class="btn btn-premium-secondary px-3" id="btnReset">
                                             <i class="fas fa-undo me-1"></i>Reset
                                         </button>
-                                        <button type="submit" class="btn btn-premium-primary px-4" id="btnSearch">
+                                        <button type="button" class="btn btn-premium-primary px-4" id="btnSearch">
                                             <i class="fas fa-search me-1"></i>Search
                                         </button>
                                     </div>
@@ -470,7 +470,6 @@
 @endsection
 
 @section('js')
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         $(document).ready(function() {
             // Initialize Select2 with search for customer dropdown
@@ -482,22 +481,28 @@
                 });
             }
 
-            // Function to initialize DataTable
+            // Function to initialize DataTable safely
             function initDataTable() {
-                if ($.fn.DataTable.isDataTable('.datanew')) {
-                    $('.datanew').DataTable().destroy();
+                try {
+                    if ($.fn.DataTable && $.fn.DataTable.isDataTable('#sales-table')) {
+                        $('#sales-table').DataTable().destroy();
+                    }
+                    if ($.fn.DataTable) {
+                        $('#sales-table').DataTable({
+                            "pageLength": 10,
+                            "order": [],
+                            "language": {
+                                "search": "",
+                                "searchPlaceholder": "Search sales..."
+                            },
+                            "dom": "<'row mb-3 align-items-center'<'col-12 col-md-6 mb-2 mb-md-0'l><'col-12 col-md-6'f>>" +
+                                "<'row'<'col-12'tr>>" +
+                                "<'row mt-3 align-items-center'<'col-12 col-md-5 mb-2 mb-md-0'i><'col-12 col-md-7'p>>",
+                        });
+                    }
+                } catch(e) {
+                    console.error("DataTable initialization error: ", e);
                 }
-                $('.datanew').DataTable({
-                    "pageLength": 10,
-                    "order": [],
-                    "language": {
-                        "search": "",
-                        "searchPlaceholder": "Search sales..."
-                    },
-                    "dom": "<'row mb-3 align-items-center'<'col-12 col-md-6 mb-2 mb-md-0'l><'col-12 col-md-6'f>>" +
-                        "<'row'<'col-12'tr>>" +
-                        "<'row mt-3 align-items-center'<'col-12 col-md-5 mb-2 mb-md-0'i><'col-12 col-md-7'p>>",
-                });
             }
 
             // Initial call
@@ -507,6 +512,55 @@
             $('#toggleFilterPanel').on('click', function() {
                 $('#filterPanelContainer').slideToggle(200);
             });
+
+            // Core AJAX Filter Function
+            function applySalesFilter() {
+                const $btn = $('#btnSearch');
+                const origHtml = $btn.html();
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Searching...');
+
+                let formData = $('#filterForm').serialize();
+                let urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.has('status')) {
+                    formData += '&status=' + encodeURIComponent(urlParams.get('status'));
+                }
+
+                $.ajax({
+                    url: '{{ route("sale.index") }}',
+                    method: 'GET',
+                    data: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    success: function(response) {
+                        $btn.prop('disabled', false).html(origHtml);
+                        
+                        if ($.fn.DataTable && $.fn.DataTable.isDataTable('#sales-table')) {
+                            $('#sales-table').DataTable().destroy();
+                        }
+                        
+                        $('#salesTableBody').html(response.html);
+                        
+                        // Update Stat Cards dynamically if present
+                        if (response.stats) {
+                            $('#statTotalCount').text(Number(response.stats.total_count || 0).toLocaleString());
+                            $('#statTotalNet').text('Rs. ' + Number(response.stats.total_net || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+                            $('#statTotalDiscount').text('Rs. ' + Number(response.stats.total_discount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+                            $('#statStatusCounts').html((response.stats.posted_count || 0) + ' <span class="fs-6 fw-normal text-muted">/ ' + (response.stats.booked_count || 0) + '</span>');
+                        }
+
+                        initDataTable();
+                    },
+                    error: function(err) {
+                        $btn.prop('disabled', false).html(origHtml);
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire('Error', 'Failed to retrieve filtered list.', 'error');
+                        } else {
+                            alert('Failed to retrieve filtered list.');
+                        }
+                    }
+                });
+            }
 
             // Quick Filter Logic
             $(document).on('change', '#quick_filter', function() {
@@ -518,7 +572,6 @@
                 let end = new Date();
 
                 if (val === 'daily') {
-                    // Today
                     start = new Date();
                     end = new Date();
                 } else if (val === 'weekly') {
@@ -553,68 +606,76 @@
                 if (pickerTo) pickerTo.setDate(endStr, true);
                 else $("#filter_to_date").val(endStr);
 
-                $('#filterForm').trigger('submit');
+                applySalesFilter();
             });
 
-            // Submit filter form via AJAX
+            // Trigger search on button click & enter key
+            $('#btnSearch').on('click', function(e) {
+                e.preventDefault();
+                applySalesFilter();
+            });
+
             $('#filterForm').on('submit', function(e) {
                 e.preventDefault();
-                const $btn = $('#btnSearch');
-                const origHtml = $btn.html();
-                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Searching...');
-
-                let formData = $(this).serialize();
-                let urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.has('status')) {
-                    formData += '&status=' + urlParams.get('status');
-                }
-
-                $.ajax({
-                    url: '{{ route("sale.index") }}',
-                    method: 'GET',
-                    data: formData,
-                    success: function(response) {
-                        $btn.prop('disabled', false).html(origHtml);
-                        
-                        if ($.fn.DataTable.isDataTable('.datanew')) {
-                            $('.datanew').DataTable().destroy();
-                        }
-                        
-                        $('#salesTableBody').html(response.html);
-                        
-                        // Update Stat Cards dynamically if present
-                        if (response.stats) {
-                            $('#statTotalCount').text(Number(response.stats.total_count || 0).toLocaleString());
-                            $('#statTotalNet').text('Rs. ' + Number(response.stats.total_net || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}));
-                            $('#statTotalDiscount').text('Rs. ' + Number(response.stats.total_discount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}));
-                            $('#statStatusCounts').html((response.stats.posted_count || 0) + ' <span class="fs-6 fw-normal text-muted">/ ' + (response.stats.booked_count || 0) + '</span>');
-                        }
-
-                        initDataTable();
-                    },
-                    error: function(err) {
-                        $btn.prop('disabled', false).html(origHtml);
-                        Swal.fire('Error', 'Failed to retrieve filtered list.', 'error');
-                    }
-                });
+                applySalesFilter();
+                return false;
             });
 
-            // Reset form
-            $('#btnReset').on('click', function() {
-                $('#filterForm')[0].reset();
-                if ($('.select2-customer').length > 0) {
-                    $('.select2-customer').val('').trigger('change.select2');
+            $(document).on('keypress', '#filterForm input', function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    applySalesFilter();
+                    return false;
                 }
-                
-                let pickerFrom = document.getElementById('filter_from_date') ? document.getElementById('filter_from_date')._flatpickr : null;
-                let pickerTo = document.getElementById('filter_to_date') ? document.getElementById('filter_to_date')._flatpickr : null;
-                if (pickerFrom) pickerFrom.clear();
-                if (pickerTo) pickerTo.clear();
+            });
+
+            // Reset form completely and fetch unfiltered list via AJAX
+            $('#btnReset').on('click', function(e) {
+                e.preventDefault();
+
+                // 1. Explicitly clear all filter inputs
                 $('#filter_from_date').val('');
                 $('#filter_to_date').val('');
+                $('#filter_bill_no').val('');
+                $('#filter_reference').val('');
                 $('#quick_filter').val('custom');
+                
+                // 2. Clear Select2 Customer Dropdown properly
+                if ($('.select2-customer').length > 0) {
+                    $('.select2-customer').val('').trigger('change');
+                }
+                
+                // 3. Clear Flatpickr instances
+                let fromElem = document.getElementById('filter_from_date');
+                let toElem = document.getElementById('filter_to_date');
+                if (fromElem && fromElem._flatpickr) {
+                    fromElem._flatpickr.clear();
+                }
+                if (toElem && toElem._flatpickr) {
+                    toElem._flatpickr.clear();
+                }
 
-                $('#filterForm').trigger('submit');
+                // Clear any Flatpickr visible alt-inputs inside filter container
+                $('#filterPanelContainer .datepicker-custom').val('');
+                $('#filterPanelContainer input.input').val('');
+
+                // 4. Clear DataTables client search if any
+                if ($.fn.DataTable && $.fn.DataTable.isDataTable('#sales-table')) {
+                    $('#sales-table').DataTable().search('');
+                }
+
+                // 5. Clean browser URL query parameters (revert back to clean /sale or preserve status tab)
+                let urlParams = new URLSearchParams(window.location.search);
+                let newUrl = window.location.pathname;
+                if (urlParams.has('status')) {
+                    newUrl += '?status=' + encodeURIComponent(urlParams.get('status'));
+                }
+                if (window.history.replaceState) {
+                    window.history.replaceState({}, '', newUrl);
+                }
+
+                // 6. Trigger AJAX to fetch complete unfiltered data
+                applySalesFilter();
             });
 
             // Confirm Booking Action
