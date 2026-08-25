@@ -118,7 +118,7 @@
         <td>{!! $statusBadge !!}</td>
         <td class="pe-3 text-center">
             <div class="dropdown">
-                <button class="btn btn-premium-action dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false">
+                <button class="btn btn-premium-action dropdown-toggle" type="button" data-toggle="dropdown" data-display="static" aria-expanded="false">
                     <i class="fas fa-ellipsis-v small me-1"></i> Actions
                 </button>
                 <ul class="dropdown-menu dropdown-menu-right border-0 shadow-lg rounded-3">

@@ -143,12 +143,22 @@
             border-radius: 12px !important;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
             background-color: #ffffff;
+            overflow: visible !important;
+        }
+
+        .premium-card .card-body {
+            overflow: visible !important;
+        }
+
+        .table-responsive {
+            border-radius: 8px !important;
+            overflow: visible !important;
         }
 
         .premium-table {
             border: 2px solid #475569 !important;
             border-radius: 8px !important;
-            overflow: hidden;
+            overflow: visible !important;
         }
         
         .premium-table thead th {
@@ -173,6 +183,31 @@
         
         .premium-table tbody tr:hover td {
             background-color: #f8fafc !important;
+        }
+
+        /* Premium Dropdown Menu Customizations */
+        .dropdown-menu {
+            border: 1.5px solid #cbd5e1 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+            padding: 6px 0 !important;
+            z-index: 1055 !important;
+            min-width: 190px !important;
+        }
+        .dropdown-item {
+            font-size: 12.5px !important;
+            font-weight: 500 !important;
+            color: #334155 !important;
+            padding: 7px 14px !important;
+            transition: all 0.15s ease-in-out !important;
+        }
+        .dropdown-item:hover {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
+        .dropdown-divider {
+            border-top: 1.5px solid #e2e8f0 !important;
+            margin: 4px 0 !important;
         }
 
         /* Dropdown Action Button */
