@@ -722,18 +722,17 @@
 
                                 <thead>
                                     <tr>
-                                        <th class="col-product">Product</th>
-                                        <th class="col-stock">Stock</th>
-                                        <th style="width:70px;min-width:70px;">Qty</th>
-                                        <th style="width:70px;min-width:70px;" class="d-none">Loose</th>
-                                        <th class="col-size">Size</th>
-                                        <th class="col-color">Color</th>
-                                        <th class="col-pieces boxes-col">Pcs</th>
-                                        <th class="col-price-p price-pc-header">Price</th>
-                                        <th class="col-disc">Disc</th>
-                                        <th class="col-disc-amt">D.Amt</th>
-                                        <th class="col-amount">Amount</th>
-                                        <th class="col-action">×</th>
+                                        <th style="width:30px;" class="text-center">#</th>
+                                        <th class="col-product" style="min-width: 160px;">PRODUCT</th>
+                                        <th class="col-stock" style="width: 60px;">STOCK</th>
+                                        <th class="col-qty" style="width: 85px;">QTY</th>
+                                        <th class="col-size" style="width: 55px;">SIZE</th>
+                                        <th class="col-color" style="width: 65px;">COLOR</th>
+                                        <th class="col-pieces" style="width: 55px;">PCS</th>
+                                        <th class="col-price-p" style="width: 85px;">PRICE</th>
+                                        <th class="col-disc" style="width: 85px;">DISCOUNT</th>
+                                        <th class="col-amount" style="width: 95px;">AMOUNT</th>
+                                        <th class="col-action" style="width: 34px;">×</th>
                                     </tr>
                                 </thead>
                                 <tbody id="salesTableBody">
@@ -762,9 +761,9 @@
                                                 // Calculate Warehouse Stock Display for the SELECTED warehouse
                                                 $selStockDisp = '';
                                                 if ($item->warehouse_id) {
-                                                    $selWs = $prod->warehouseStocks
+                                                    $selWs = $prod ? $prod->warehouseStocks
                                                         ->where('warehouse_id', $item->warehouse_id)
-                                                        ->first();
+                                                        ->first() : null;
                                                     if ($selWs) {
                                                         $stk = (float) $selWs->total_pieces;
                                                         if ($stk <= 0 && $selWs->quantity > 0) {
@@ -786,6 +785,9 @@
                                             <tr data-size_mode="{{ $sizeMode }}"
                                                 data-pieces_per_box="{{ $ppb }}"
                                                 data-price_per_m2="{{ $prod->price_per_m2 ?? 0 }}">
+                                                <!-- # ROW INDEX -->
+                                                <td class="text-center fw-bold text-muted row-index" style="vertical-align:middle; font-size:0.75rem;">{{ $loop->iteration }}</td>
+
                                                 <!-- Product -->
                                                 <td class="col-product">
                                                     @php
@@ -836,9 +838,16 @@
                                                 </td>
 
                                                 <!-- Carton -->
-                                                <td style="width:55px;min-width:55px;">
-                                                    <input type="number" class="form-control carton-qty text-end"
-                                                        name="carton_qty[]" value="{{ $cartons }}" placeholder="0" min="0">
+                                                <td style="width:85px;" class="col-qty-wrapper">
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        <input type="number" step="any" class="form-control carton-qty text-start fw-bold"
+                                                            name="carton_qty[]" value="{{ $cartons }}" placeholder="0" min="0" style="flex: 1; min-width: 0; padding-left: 6px;">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary qty-unit-toggle px-1 py-0 d-none" 
+                                                                data-unit-mode="main" title="Toggle Unit" style="font-size: 0.65rem; height: 26px; min-width: 28px; font-weight: 700; border-radius: 4px; flex-shrink: 0;">
+                                                            Kg
+                                                        </button>
+                                                    </div>
+                                                    <input type="hidden" class="hidden-sub-unit-mode" name="sub_unit_mode[]" value="main">
                                                 </td>
 
                                                 <!-- Loose Pcs (hidden) -->
@@ -847,28 +856,28 @@
                                                         name="loose_qty[]" value="{{ $loose }}" placeholder="0" min="0">
                                                 </td>
 
-                                                    <!-- Size -->
-                                                    <td class="col-size">
-                                                        <input type="text"
-                                                            class="form-control size-display text-center"
-                                                            name="size_display[]"
-                                                            value="{{ ($vSize ?? '') !== '-' ? ($vSize ?? '') : '' }}"
-                                                            placeholder="-">
-                                                        <input type="hidden" class="pack-qty" name="pack_qty[]" value="{{ $ppb }}">
-                                                    </td>
-                                                    
-                                                    <!-- Color -->
-                                                    <td class="col-color">
-                                                        <input type="text"
-                                                            class="form-control color-display text-center input-readonly"
-                                                            readonly value="{{ $vCol ?? '-' }}"
-                                                            tabindex="-1">
-                                                    </td>
+                                                <!-- Size -->
+                                                <td class="col-size">
+                                                    <input type="text"
+                                                        class="form-control size-display text-center"
+                                                        name="size_display[]"
+                                                        value="{{ ($vSize ?? '') !== '-' ? ($vSize ?? '') : '' }}"
+                                                        placeholder="-">
+                                                    <input type="hidden" class="pack-qty" name="pack_qty[]" value="{{ $ppb }}">
+                                                </td>
+                                                
+                                                <!-- Color -->
+                                                <td class="col-color">
+                                                    <input type="text"
+                                                        class="form-control color-display text-center input-readonly"
+                                                        readonly value="{{ $vCol ?? '-' }}"
+                                                        tabindex="-1">
+                                                </td>
 
                                                 <!-- Total Pieces -->
                                                 <td class="col-pieces">
                                                     <input type="text"
-                                                        class="form-control total-pieces text-end input-readonly"
+                                                        class="form-control total-pieces text-end input-readonly fw-semibold"
                                                         name="total_pieces[]" readonly value="{{ $item->total_pieces }}"
                                                         tabindex="-1">
                                                     <!-- Hidden qty field for backend compatibility -->
@@ -877,16 +886,26 @@
 
                                                 <!-- Retail Price -->
                                                 <td class="col-price-p">
-                                                    <input type="text"
-                                                        class="form-control visible-price text-end"
-                                                        name="visible_price[]"
-                                                        value="{{ $item->price }}"
-                                                        placeholder="0.00">
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        <input type="text"
+                                                            class="form-control visible-price text-end fw-semibold"
+                                                            name="visible_price[]"
+                                                            value="{{ $item->price }}"
+                                                            placeholder="0.00" style="flex: 1; min-width: 0;">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary price-mode-row-toggle px-1 py-0" 
+                                                                data-mode="retail" title="Retail Mode">
+                                                            R
+                                                        </button>
+                                                    </div>
                                                     <input type="hidden" class="price-per-piece"
                                                         name="price_per_piece[]"
                                                         value="{{ $item->price }}">
                                                     <input type="hidden" class="retail-price"
                                                         value="{{ $prod->retail_price ?? $item->price }}">
+                                                    <input type="hidden" class="wholesale-price"
+                                                        value="{{ $prod->wholesale_price ?? $item->price }}">
+                                                    <input type="hidden" class="weight-per-piece"
+                                                        value="{{ $prod->weight_per_piece ?? 0 }}">
                                                 </td>
 
                                                 <!-- Discount -->
@@ -899,26 +918,22 @@
                                                             class="btn btn-outline-secondary discount-toggle"
                                                             data-type="percent" tabindex="-1">%</button>
                                                     </div>
-                                                </td>
-
-                                                <!-- Disc Amt -->
-                                                <td class="col-disc-amt">
-                                                    <input type="text" class="form-control discount-amount text-end" readonly value="{{ $item->discount_amount }}">
+                                                    <input type="hidden" class="discount-amount" value="{{ $item->discount_amount }}">
                                                 </td>
 
                                                 <!-- Net Amount -->
                                                 <td class="col-amount">
                                                     <input type="text"
-                                                        class="form-control sales-amount text-end input-readonly"
+                                                        class="form-control sales-amount text-end input-readonly fw-bold text-dark"
                                                         name="total[]" value="{{ $item->total }}" readonly
                                                         tabindex="-1">
                                                     <input type="hidden" class="gross-amount" value="{{ $item->total + $item->discount_amount }}">
                                                 </td>
 
                                                 <!-- Action -->
-                                                <td class="col-action">
+                                                <td class="col-action text-center">
                                                     <button type="button" class="btn btn-sm btn-outline-danger del-row"
-                                                        tabindex="-1">&times;</button>
+                                                        tabindex="-1" title="Delete Row">&times;</button>
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -926,8 +941,8 @@
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="9" class="text-end fw-bold" style="font-size:0.76rem;">Total:</td>
-                                        <td class="text-end fw-bold" style="font-size:0.76rem;"><span id="totalAmount">0.00</span></td>
+                                        <td colspan="9" class="text-end fw-bold text-uppercase text-secondary" style="font-size:0.8rem;">GRID TOTAL:</td>
+                                        <td class="text-end fw-bold text-success fs-6"><span id="totalAmount">0.00</span></td>
                                         <td></td>
                                     </tr>
                                 </tfoot>
@@ -957,12 +972,21 @@
                                         }
                                         $firstLine = $receiptLines->first();
                                         $otherLines = $receiptLines->skip(1);
+
+                                        $defaultCashAcc = $accounts->first(function($a) {
+                                            $t = strtolower($a->title);
+                                            return str_contains($t, 'cash in hand') || str_contains($t, 'main cash') || $t === 'cash' || $t === 'cash account';
+                                        }) ?? $accounts->first(function($a) {
+                                            return str_contains(strtolower($a->title), 'cash');
+                                        }) ?? $accounts->first();
+                                        $defaultCashId = $defaultCashAcc ? $defaultCashAcc->id : null;
+
+                                        $selectedFirstAccId = $firstLine ? $firstLine->account_id : $defaultCashId;
                                     @endphp
                                     <div class="d-flex gap-2 align-items-center mb-2 rv-row">
                                         <select class="form-select form-select-sm rv-account bg-light" name="receipt_account_id[]" style="max-width: 280px; border-radius: 4px;">
-                                            <option value="" disabled>Select account</option>
                                             @foreach ($accounts as $acc)
-                                                <option value="{{ $acc->id }}" {{ $firstLine && $firstLine->account_id == $acc->id ? 'selected' : ($firstLine ? '' : (str_contains(strtolower($acc->title), 'cash') ? 'selected' : '')) }}>{{ $acc->title }}</option>
+                                                <option value="{{ $acc->id }}" {{ $selectedFirstAccId == $acc->id ? 'selected' : '' }}>{{ $acc->title }}</option>
                                             @endforeach
                                         </select>
                                         <input type="number" step="0.01" class="form-control form-control-sm text-end rv-amount fw-bold" name="receipt_amount[]" value="{{ $firstLine ? number_format($firstLine->debit, 2, '.', '') : ((isset($sale) && $sale->cash > 0) ? number_format($sale->cash, 2, '.', '') : '') }}" placeholder="0.00" style="max-width:140px; border-radius: 4px;">
@@ -971,7 +995,6 @@
                                     @foreach ($otherLines as $line)
                                         <div class="d-flex gap-2 align-items-center mb-2 rv-row">
                                             <select class="form-select form-select-sm rv-account bg-light" name="receipt_account_id[]" style="max-width: 280px; border-radius: 4px;">
-                                                <option value="" disabled>Select account</option>
                                                 @foreach ($accounts as $acc)
                                                     <option value="{{ $acc->id }}" {{ $line->account_id == $acc->id ? 'selected' : '' }}>{{ $acc->title }}</option>
                                                 @endforeach
@@ -1023,7 +1046,7 @@
                                     <span class="fw-bold text-danger" style="font-size:0.78rem;">Change A/C:</span>
                                     <select class="form-select form-select-sm bg-light fw-bold text-danger border-danger" name="change_account_id" id="editChangeAccountId" style="width: 140px; font-size:0.75rem; height: 26px; padding: 1px 4px;">
                                         @foreach ($accounts as $acc)
-                                            <option value="{{ $acc->id }}" {{ (isset($sale) && $sale->change_account_id == $acc->id) ? 'selected' : (str_contains(strtolower($acc->title), 'cash') ? 'selected' : '') }}>{{ $acc->title }}</option>
+                                            <option value="{{ $acc->id }}" {{ (isset($sale) && $sale->change_account_id == $acc->id) ? 'selected' : ($defaultCashId == $acc->id ? 'selected' : '') }}>{{ $acc->title }}</option>
                                         @endforeach
                                     </select>
                                 </div>

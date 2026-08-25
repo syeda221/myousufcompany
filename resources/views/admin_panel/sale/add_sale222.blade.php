@@ -904,11 +904,20 @@
                                     <span class="text-muted"><i class="fas fa-hand-holding-usd text-success me-1"></i>Commission</span>
                                     <span class="fw-bold text-success" id="summaryCommissionVal">Rs. 0.00</span>
                                 </div>
+                                @php
+                                    $defaultCashAcc = $accounts->first(function($a) {
+                                        $t = strtolower($a->title);
+                                        return str_contains($t, 'cash in hand') || str_contains($t, 'main cash') || $t === 'cash' || $t === 'cash account';
+                                    }) ?? $accounts->first(function($a) {
+                                        return str_contains(strtolower($a->title), 'cash');
+                                    }) ?? $accounts->first();
+                                    $defaultCashId = $defaultCashAcc ? $defaultCashAcc->id : null;
+                                @endphp
                                 <div class="summary-row pt-2 align-items-center" id="changeAccountRow" style="display: none; border-top: 1px dashed #f1aeb5; background: #fff8f8; padding: 6px 8px; border-radius: 6px;">
                                     <span class="text-danger fw-bold d-flex align-items-center gap-1" style="font-size:0.76rem;"><i class="fas fa-hand-holding-usd"></i> Change A/C</span>
                                     <select class="form-select form-select-sm bg-white fw-bold text-danger border-danger" name="change_account_id" id="changeAccountId" style="width: 135px; font-size:0.75rem; height: 28px; padding: 2px 6px;">
                                         @foreach ($accounts as $acc)
-                                            <option value="{{ $acc->id }}" {{ str_contains(strtolower($acc->title), 'cash') ? 'selected' : '' }}>{{ $acc->title }}</option>
+                                            <option value="{{ $acc->id }}" {{ $defaultCashId == $acc->id ? 'selected' : '' }}>{{ $acc->title }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -925,7 +934,7 @@
                                     <div class="d-flex gap-2 align-items-center mb-2 rv-row">
                                         <select class="form-select form-select-sm rv-account bg-light fw-bold" name="receipt_account_id[]" style="font-size:0.78rem;">
                                             @foreach ($accounts as $acc)
-                                                <option value="{{ $acc->id }}" {{ str_contains(strtolower($acc->title), 'cash') || str_contains(strtolower($acc->title), 'easypaisa') ? 'selected' : '' }}>{{ $acc->title }}</option>
+                                                <option value="{{ $acc->id }}" {{ $defaultCashId == $acc->id ? 'selected' : '' }}>{{ $acc->title }}</option>
                                             @endforeach
                                         </select>
                                         <input type="number" step="0.01" class="form-control form-control-sm text-end rv-amount fw-bold" name="receipt_amount[]" placeholder="0.00" style="width: 110px; font-size:0.8rem;">
@@ -969,7 +978,7 @@
                         <span class="text-danger fw-bold" style="font-size:0.76rem;">Change A/C:</span>
                         <select class="form-select form-select-sm bg-light fw-bold text-danger border-danger" id="bottomChangeAccountId" style="width: 135px; font-size:0.75rem; height: 30px; padding: 2px 6px;">
                             @foreach ($accounts as $acc)
-                                <option value="{{ $acc->id }}" {{ str_contains(strtolower($acc->title), 'cash') ? 'selected' : '' }}>{{ $acc->title }}</option>
+                                <option value="{{ $acc->id }}" {{ $defaultCashId == $acc->id ? 'selected' : '' }}>{{ $acc->title }}</option>
                             @endforeach
                         </select>
                     </div>

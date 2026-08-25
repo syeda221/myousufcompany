@@ -523,7 +523,14 @@
         let customerName = "Select Customer";
         const customerVal = $('#customerSelect').val();
         if (customerVal) {
-            const customerData = $('#customerSelect').select2 ? $('#customerSelect').select2('data') : null;
+            let customerData = null;
+            if ($('#customerSelect').hasClass('select2-hidden-accessible') || $('#customerSelect').data('select2')) {
+                try {
+                    customerData = $('#customerSelect').select2('data');
+                } catch(e) {
+                    customerData = null;
+                }
+            }
             if (customerData && customerData.length > 0 && customerData[0].customer) {
                 customerName = customerData[0].customer.customer_name;
             } else {
@@ -1247,7 +1254,10 @@
         });
 
         // Add Row Button
-        $('#btnAdd').click(addNewRow);
+        $(document).on('click', '#btnAdd', function(e) {
+            e.preventDefault();
+            addNewRow();
+        });
 
         // Row Pricing Mode Toggle Handler
         $(document).on('click', '.price-mode-row-toggle', function() {
@@ -1286,7 +1296,12 @@
 
                 // Add new row and open product dropdown
                 addNewRow();
-                setTimeout(() => $('#salesTableBody tr:last-child .product').select2('open'), 50);
+                setTimeout(() => {
+                    const $lastProd = $('#salesTableBody tr:last-child .product');
+                    if ($lastProd.length && ($lastProd.hasClass('select2-hidden-accessible') || $lastProd.data('select2'))) {
+                        try { $lastProd.select2('open'); } catch(e) {}
+                    }
+                }, 50);
             }
         });
 
@@ -1336,7 +1351,19 @@
                 return;
             }
             $('#action').val('booking');
-            ensureSaved();
+            ensureSaved().then(function(res) {
+                const isEdit = Boolean($('#booking_id').val());
+                if (isEdit) {
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'Sale Booking Updated Successfully',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    setTimeout(() => window.location.href = "{{ route('sale.index') }}", 1500);
+                }
+            });
         });
 
         // Buttons: Sale (Post)
@@ -1375,7 +1402,6 @@
             }
 
             // Credit Limit Check
-            // Credit Limit Check
             const rangeBal = toNum($('#rangeBalance').val());
             if (rangeBal > 0) {
                 const prevBal = toNum($('#previousBalance').val());
@@ -1408,13 +1434,16 @@
             ensureSaved().then(function(res) {
                 const id = (res && res.booking_id) ? res.booking_id : res;
                 const thermalUrl = (res && res.receipt_url) ? res.receipt_url : ('{{ url('sales') }}/' + id + '/recepit');
+                const isEdit = Boolean($('#booking_id').val());
 
-                // Open thermal sale receipt directly
-                window.open(thermalUrl, '_blank');
+                // Open thermal sale receipt only for new sales, not when editing
+                if (!isEdit) {
+                    window.open(thermalUrl, '_blank');
+                }
 
                 Swal.fire({
                     title: 'Success!',
-                    text: 'Sale Posted & Receipt Opened Successfully',
+                    text: isEdit ? 'Sale Updated Successfully' : 'Sale Posted & Receipt Opened Successfully',
                     icon: 'success',
                     timer: 1500,
                     showConfirmButton: false
@@ -1472,12 +1501,37 @@
 
         function loadAccountsInto($select, customerId) {
             const currentVal = $select.val();
-            let options = '<option value="">Select account</option>';
+            let options = '';
+            let defaultCashId = '';
             accountData.forEach(acc => {
-                options += `<option value="${acc.id}">${acc.title}</option>`;
+                const titleLower = (acc.title || '').toLowerCase();
+                const isCashInHand = titleLower.includes('cash in hand') || titleLower.includes('main cash') || titleLower === 'cash' || titleLower === 'cash account';
+                if (isCashInHand && !defaultCashId) {
+                    defaultCashId = acc.id;
+                }
+            });
+            if (!defaultCashId) {
+                accountData.forEach(acc => {
+                    const titleLower = (acc.title || '').toLowerCase();
+                    if (titleLower.includes('cash') && !defaultCashId) {
+                        defaultCashId = acc.id;
+                    }
+                });
+            }
+            if (!defaultCashId && accountData.length > 0) {
+                defaultCashId = accountData[0].id;
+            }
+
+            accountData.forEach(acc => {
+                const isSelected = (currentVal && currentVal == acc.id) || (!currentVal && defaultCashId == acc.id);
+                options += `<option value="${acc.id}" ${isSelected ? 'selected' : ''}>${acc.title}</option>`;
             });
             $select.html(options);
-            if (currentVal) $select.val(currentVal);
+            if (currentVal) {
+                $select.val(currentVal);
+            } else if (defaultCashId) {
+                $select.val(defaultCashId);
+            }
         }
 
         window.recomputeReceipts = function() {
