@@ -559,12 +559,22 @@
     <script>
         $(document).ready(function() {
 
+            let categoriesData = @json($expenseCategories);
+
+            function getCategoryOptionsHtml() {
+                let html = '<option value="" disabled selected>-- Select Category --</option>';
+                categoriesData.forEach(function(cat) {
+                    html += `<option value="${cat.id}">${cat.name}</option>`;
+                });
+                return html;
+            }
+
             // Helper to initialize Select2 on category dropdowns
             function initCategorySelect2($elem) {
                 $elem.select2({
                     placeholder: "-- Select Category --",
                     allowClear: true,
-                    width: 'resolve'
+                    width: '100%'
                 });
             }
 
@@ -672,7 +682,7 @@
 
             // Add Row
             $('#addNewRow').on('click', function() {
-                let optionsHtml = $('.rowAccountCategory').first().html();
+                let optionsHtml = getCategoryOptionsHtml();
                 let $newRow = $(`
                 <tr>
                     <td class="row-number">1</td>
@@ -700,7 +710,6 @@
                 `);
                 $('#voucherTable tbody').append($newRow);
                 let $catSelect = $newRow.find('.rowAccountCategory');
-                $catSelect.val('');
                 initCategorySelect2($catSelect);
                 updateRowIndices();
             });
@@ -740,6 +749,7 @@
                             $('#newExpenseCategoryForm')[0].reset();
                             
                             let newCat = response.category;
+                            categoriesData.push({ id: newCat.id, name: newCat.name });
                             let newOption = new Option(newCat.name, newCat.id, false, false);
                             $('.rowAccountCategory').each(function() {
                                 $(this).append(newOption.cloneNode(true));
