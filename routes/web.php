@@ -7,6 +7,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerImportExportController;
 use App\Http\Controllers\CustomerTypeController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\HomeController;
@@ -189,6 +190,20 @@ Route::middleware('auth')->group(function () {
     // routes/web.php
 
     // Customer Routes
+    // ── Customer Import / Export ──
+    Route::get('/customers/export',   [CustomerImportExportController::class, 'export'])
+        ->middleware('permission:customers.view')->name('customers.export');
+    Route::get('/customers/template', [CustomerImportExportController::class, 'template'])
+        ->middleware('permission:customers.view')->name('customers.template');
+        
+    // Import process
+    Route::post('/customers/import/validate',  [CustomerImportExportController::class, 'importValidate'])
+        ->middleware('permission:customers.create')->name('customers.import.validate');
+    Route::get('/customers/import/preview',  [CustomerImportExportController::class, 'importPreview'])
+        ->middleware('permission:customers.create')->name('customers.import.preview');
+    Route::post('/customers/import/confirm',  [CustomerImportExportController::class, 'importConfirm'])
+        ->middleware('permission:customers.create')->name('customers.import.confirm');
+
     // Dropdown list (by type)
     Route::get('sale/customers', [CustomerController::class, 'saleindex'])->middleware('permission:customers.view')->name('salecustomers.index');
 
